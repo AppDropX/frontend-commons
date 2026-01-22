@@ -27,7 +27,7 @@ class AppStylingConfig {
 
   factory AppStylingConfig.fromJson(Map<String, dynamic> json) {
     return AppStylingConfig(
-      fontFamily: (json['font_family'] ?? 'Inter').toString(),
+      fontFamily: (json['font_family'] ?? 'Poppins').toString(),
       toolbarBg: parseHexColor(json['toolbar_bg']?.toString()) ?? const Color(0xFFFFFA66),
       toolbarFont: parseHexColor(json['toolbar_font']?.toString()) ?? const Color(0xFF111111),
       bottomBg: parseHexColor(json['bottom_bg']?.toString()) ?? Colors.white,
