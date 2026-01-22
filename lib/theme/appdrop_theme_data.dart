@@ -9,13 +9,13 @@ class AppDropThemeData {
     final font = cfg.appStyling.fontFamily.trim().toLowerCase();
     TextTheme textTheme = base.textTheme;
 
-    if (font == 'poppins') {
+    if (font == 'Poppins') {
       textTheme = GoogleFonts.poppinsTextTheme(textTheme);
-    } else if (font == 'inter') {
+    } else if (font == 'Inter') {
       textTheme = GoogleFonts.interTextTheme(textTheme);
-    } else if (font == 'roboto') {
+    } else if (font == 'Roboto') {
       textTheme = GoogleFonts.robotoTextTheme(textTheme);
-    } else if (font == 'open sans' || font == 'opensans') {
+    } else if (font == 'Open Sans' || font == 'OpenSans') {
       textTheme = GoogleFonts.openSansTextTheme(textTheme);
     }
 
