@@ -52,56 +52,62 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
 
     final hasDrawer = cfg.sideMenu.menuItems.isNotEmpty;
     final bottomItems = cfg.bottomBar.items.where((e) => e.enabled).toList();
+    final theme = AppDropThemeData.buildFromConfig(cfg); // ✅ add this
+
+
     if (bottomIndex >= bottomItems.length) bottomIndex = 0;
 
     return AppDropThemeScope(
       config: cfg,
-      child: Scaffold(
-        drawer: hasDrawer
-            ? AppDropSideMenu(
-          config: cfg.sideMenu,
-          onItemTap: (item) => widget.onMenuItemTap?.call(item),
-        )
-            : null,
-        appBar: AppDropAppBar(
-          styling: cfg.appStyling,
-          title: widget.title,
-          showMenu: hasDrawer,
-          showCart: true,
-          onCartTap: widget.onCartTap,
-        ),
-        bottomNavigationBar: AppDropBottomNav(
-          styling: cfg.appStyling,
-          config: cfg.bottomBar,
-          currentIndex: bottomIndex,
-          onTap: (i) {
-            setState(() => bottomIndex = i);
-            if (i < bottomItems.length) widget.onBottomNavTap?.call(i, bottomItems[i]);
-          },
-        ),
-        body: Column(
-          children: [
-            if (cfg.topNavigation.tabs.isNotEmpty)
-              AppDropTopTabs(
-                styling: cfg.appStyling,
-                config: cfg.topNavigation,
-                selectedIndex: tabIndex,
-                onChanged: (i) {
-                  setState(() => tabIndex = i);
-                  widget.onTabChanged?.call(i, cfg.topNavigation.tabs[i]);
-                },
-              ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: AppDropRenderer(
-                  nodes: nodes,
-                  registry: WidgetRegistry.defaults(),
-                  onAction: (ctx, action) => widget.onAction?.call(ctx as BuildContext, action),
+      child: Theme(
+        data: theme,
+        child: Scaffold(
+          drawer: hasDrawer
+              ? AppDropSideMenu(
+            config: cfg.sideMenu,
+            onItemTap: (item) => widget.onMenuItemTap?.call(item),
+          )
+              : null,
+          appBar: AppDropAppBar(
+            styling: cfg.appStyling,
+            title: widget.title,
+            showMenu: hasDrawer,
+            showCart: true,
+            onCartTap: widget.onCartTap,
+          ),
+          bottomNavigationBar: AppDropBottomNav(
+            styling: cfg.appStyling,
+            config: cfg.bottomBar,
+            currentIndex: bottomIndex,
+            onTap: (i) {
+              setState(() => bottomIndex = i);
+              if (i < bottomItems.length) widget.onBottomNavTap?.call(i, bottomItems[i]);
+            },
+          ),
+          body: Column(
+            children: [
+              if (cfg.topNavigation.tabs.isNotEmpty)
+                AppDropTopTabs(
+                  styling: cfg.appStyling,
+                  config: cfg.topNavigation,
+                  selectedIndex: tabIndex,
+                  onChanged: (i) {
+                    setState(() => tabIndex = i);
+                    widget.onTabChanged?.call(i, cfg.topNavigation.tabs[i]);
+                  },
+                ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: AppDropRenderer(
+                    nodes: nodes,
+                    registry: WidgetRegistry.defaults(),
+                    onAction: (ctx, action) => widget.onAction?.call(ctx as BuildContext, action),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
