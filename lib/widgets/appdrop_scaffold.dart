@@ -17,6 +17,7 @@ class AppDropScaffold extends StatefulWidget {
   final List<dynamic> pageJson;
 
   final String title;
+  final double appbarHeight;
 
   final void Function(int index, String tab)? onTabChanged;
   final void Function(String item)? onMenuItemTap;
@@ -29,6 +30,7 @@ class AppDropScaffold extends StatefulWidget {
     super.key,
     required this.themeJson,
     required this.pageJson,
+    required this.appbarHeight,
     this.title = 'Store',
     this.onTabChanged,
     this.onMenuItemTap,
@@ -69,6 +71,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
           )
               : null,
           appBar: AppDropAppBar(
+            toolbarHeight: widget.appbarHeight,
             styling: cfg.appStyling,
             title: widget.title,
             showMenu: hasDrawer,

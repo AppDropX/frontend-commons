@@ -5,12 +5,14 @@ import '../utils/icon_mapper.dart';
 class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   final AppStylingConfig styling;
   final String title;
+  final double toolbarHeight;
   final bool showMenu;
   final bool showCart;
   final VoidCallback? onCartTap;
 
   const AppDropAppBar({
     super.key,
+    required this.toolbarHeight,
     required this.styling,
     required this.title,
     required this.showMenu,
@@ -24,6 +26,9 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      elevation: 0,
+      toolbarHeight: toolbarHeight,
+      surfaceTintColor: styling.toolbarBg,
       backgroundColor: styling.toolbarBg,
       foregroundColor: styling.toolbarFont,
       centerTitle: true,
