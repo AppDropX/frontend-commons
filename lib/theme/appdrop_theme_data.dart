@@ -17,7 +17,7 @@ class AppDropThemeData {
   }
 
   static TextTheme _textTheme(String font, TextTheme base) {
-    switch (font.toLowerCase()) {
+    switch (font) {
       case "Poppins":
         return GoogleFonts.poppinsTextTheme(base);
       case "Roboto":
