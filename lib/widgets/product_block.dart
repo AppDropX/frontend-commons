@@ -47,7 +47,8 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final discountSize = s('discount_size', 'Small').toLowerCase();
 
   final aspectIdx = i('image_aspect_ratio_index', 0);
-  final imagePosIdx = i('image_position_index', 0); // 0 top, 1 left
+  final fitIdx = i('image_position_index', 0); // ✅ 0=crop, 1=fit
+  final boxFit = (fitIdx == 1) ? BoxFit.contain : BoxFit.cover;
   final titleBehaviorIdx = i('title_text_behavior_index', 0); // 0 wrap, 1 clip
   final titleAlignIdx = i('title_text_alignment_index', 0);
 
@@ -90,7 +91,13 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
       aspectRatio: aspect,
       child: Container(
         color: imageBg,
-        child: imageUrl.isEmpty ? const SizedBox.expand() : Image.network(imageUrl, fit: BoxFit.cover),
+        child: imageUrl.isEmpty
+            ? const SizedBox.expand()
+            : Image.network(
+          imageUrl,
+          fit: boxFit, //  crop/fit toggle works
+          alignment: Alignment.center,
+        ),
       ),
     ),
   );
@@ -98,6 +105,7 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final meta = Padding(
     padding: EdgeInsets.all(env.r.dp(padDp)),
     child: Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: _cross(align),
       children: [
         if (showVendor && vendor.isNotEmpty)
@@ -184,20 +192,15 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
             }).toList(),
           ),
         ],
+
       ],
     ),
   );
 
-  final body = (imagePosIdx == 1)
-      ? Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SizedBox(width: env.r.w * 0.38, child: image),
-      SizedBox(width: env.r.dp(10)),
-      Expanded(child: meta),
-    ],
-  )
-      : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [image, meta]);
+  final body = Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [image, meta],
+  );
 
   Widget card = ClipRRect(
     borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
@@ -215,16 +218,19 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
 
 double _aspectFromIndex(int idx) {
   switch (idx) {
-    case 0:
-      return 1.0; // square
-    case 1:
-      return 4 / 5; // portrait
-    case 2:
-      return 16 / 9; // landscape
+    case 0: // Smart
+      return 1.0; // ✅ grid uniform chahiye, so safest square
+    case 1: // Square
+      return 1.0;
+    case 2: // Portrait
+      return 4 / 5;
+    case 3: // Landscape
+      return 16 / 9;
     default:
       return 1.0;
   }
 }
+
 
 TextAlign _alignFromIndex(int idx) {
   switch (idx) {
