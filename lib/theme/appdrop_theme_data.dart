@@ -18,16 +18,18 @@ class AppDropThemeData {
 
   static TextTheme _textTheme(String font, TextTheme base) {
     switch (font) {
-      case "Poppins":
-        return GoogleFonts.poppinsTextTheme(base);
+      case "Inter":
+        return GoogleFonts.interTextTheme(base);
       case "Roboto":
         return GoogleFonts.robotoTextTheme(base);
       case "Open Sans":
       case "OpenSans":
         return GoogleFonts.openSansTextTheme(base);
-      case "Inter":
+      case "Lato":
+        return GoogleFonts.latoTextTheme(base);
+      case "Poppins":
       default:
-        return GoogleFonts.interTextTheme(base);
+        return GoogleFonts.poppinsTextTheme(base);
     }
   }
 }
