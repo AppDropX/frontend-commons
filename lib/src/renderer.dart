@@ -13,7 +13,7 @@ class AppDropRenderer extends StatelessWidget {
     super.key,
     required this.nodes,
     this.registry,
-    this.baseWidth = 390,
+    this.baseWidth = 320,
     this.onAction,
   });
 
