@@ -20,14 +20,15 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onCartTap,
   });
 
+  double get _h => (toolbarHeight ?? 40).toDouble();
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize =>  Size.fromHeight(_h);
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
       elevation: 0,
-      toolbarHeight: toolbarHeight,
+      toolbarHeight: _h,
       surfaceTintColor: styling.toolbarBg,
       backgroundColor: styling.toolbarBg,
       foregroundColor: styling.toolbarFont,
