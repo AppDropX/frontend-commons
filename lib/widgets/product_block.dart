@@ -171,7 +171,7 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
             ],
 
             if (showDiscount && discountPercent > 0) ...[
-              SizedBox(width: env.r.dp(8)),
+              SizedBox(width: env.r.dp(5)),
               Text('$discountPercent% OFF',
                   style: TextStyle(fontSize: discountSp, fontWeight: FontWeight.w700, color: discountColor)),
             ],
