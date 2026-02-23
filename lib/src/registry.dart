@@ -4,13 +4,14 @@ import 'widget_node.dart';
 // widget builders
 import '../widgets/spacer.dart';
 import '../widgets/text_widget.dart';
-import '../widgets/rich_text_widget.dart';
+import '../widgets/rich_text.dart';
 import '../widgets/image_banner.dart';
 import '../widgets/image_slider.dart';
 import '../widgets/image_grid.dart';
 import '../widgets/carousel.dart';
 import '../widgets/product_block.dart';
 import '../widgets/product_grid.dart';
+import '../widgets/video_block.dart';
 
 typedef NodeBuilder = Widget Function(BuildContext ctx, WidgetNode node, AppDropBuildEnv env);
 
@@ -32,6 +33,7 @@ class WidgetRegistry {
     r.register('carousel', buildCarousel);
     r.register('product_block', buildProductBlock);
     r.register('product_grid', buildProductGrid);
+    r.register('video', buildVideoBlock);
     return r;
   }
 }

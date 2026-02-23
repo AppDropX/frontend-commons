@@ -14,7 +14,16 @@ class WidgetNode {
   factory WidgetNode.fromJson(dynamic json) {
     final map = JsonMap.from(json as Map);
     final type = (map['type'] ?? '').toString();
-    final props = JsonMap.from(map['props'] ?? {});
+    final JsonMap props;
+    if (map.containsKey('props')) {
+      props = JsonMap.from(map['props'] as Map);
+    } else {
+      // PageBlock.toJson() spreads data at top level (no "props" wrapper)
+      props = JsonMap.from(map)
+        ..remove('type')
+        ..remove('id')
+        ..remove('children');
+    }
     final kids = (map['children'] is List) ? (map['children'] as List) : const [];
     return WidgetNode(
       type: type,

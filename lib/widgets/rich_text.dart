@@ -1,102 +1,158 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 
-import '../theme_library.dart';
-import '../utils/color.dart';
+import '../theme_library.dart'; // WidgetNode, AppDropBuildEnv
 
-Widget buildRichTextWidget(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
-  final deltaRaw = node.l('delta');
+/// ✅ Preview renderer for "rich_text" block using FlutterQuill (read-only)
+Widget buildRichTextWidget(
+    BuildContext context, WidgetNode node, AppDropBuildEnv env) {
+  final raw = node.props;
 
-  // ✅ If delta present -> render Quill (read-only)
-  if (deltaRaw is List && deltaRaw.isNotEmpty) {
-    return QuillReadOnlyView(delta: deltaRaw);
-  }
+  final enabled = (raw['enabled'] ?? true) == true;
+  if (!enabled) return const SizedBox.shrink();
 
-  // ✅ fallback: old spans renderer
-  final spans = node.l('spans') ?? const [];
-  final baseSize = node.d('baseSizeSp', def: 14);
-  final baseColor = parseHexColor(node.s('baseColor', def: '')) ?? const Color(0xFF374151);
+  final deltaAny = raw['delta'];
+  final delta = _normalizeDelta(deltaAny);
 
-  final alignStr = node.s('align', def: 'left').toLowerCase();
-  final align = alignStr == 'center'
-      ? TextAlign.center
-      : alignStr == 'right'
-      ? TextAlign.right
-      : TextAlign.left;
+  final baseSizeSp = (raw['baseSizeSp'] is num)
+      ? (raw['baseSizeSp'] as num).toDouble()
+      : 14.0;
+  final alignStr = (raw['align'] ?? 'left').toString();
 
-  final maxLines = node.i('maxLines', def: 0);
-  final overflow = node.s('overflow', def: 'ellipsis').toLowerCase();
+  final deltaWithAlign = _deltaWithBlockAlignment(delta, alignStr);
 
-  final children = <TextSpan>[];
-  for (final s in spans) {
-    final m = Map<String, dynamic>.from(s as Map);
-    final txt = (m['text'] ?? '').toString();
-    final w = (m['weight'] ?? 'regular').toString().toLowerCase();
-    final c = parseHexColor(m['color']?.toString()) ?? baseColor;
-
-    children.add(TextSpan(
-      text: txt,
-      style: TextStyle(
-        fontSize: env.r.sp(baseSize, min: 10, max: 28),
-        fontWeight: w == 'bold'
-            ? FontWeight.w700
-            : w == 'semibold'
-            ? FontWeight.w600
-            : FontWeight.w400,
-        color: c,
-      ),
-    ));
-  }
-
-  return RichText(
-    textAlign: align,
-    maxLines: maxLines <= 0 ? null : maxLines,
-    overflow: overflow == 'clip' ? TextOverflow.clip : TextOverflow.ellipsis,
-    text: TextSpan(children: children),
+  return MediaQuery(
+    data: MediaQuery.of(context).copyWith(
+      textScaler: TextScaler.linear((baseSizeSp / 14.0).clamp(0.5, 3.0)),
+    ),
+    child: _QuillReadOnlyView(
+      delta: deltaWithAlign,
+    ),
   );
 }
 
-
-class QuillReadOnlyView extends StatefulWidget {
-  const QuillReadOnlyView({super.key, required this.delta});
-  final List<dynamic> delta;
+/// ---------- Read-only widget (stateful so we don't leak FocusNode/ScrollController) ----------
+class _QuillReadOnlyView extends StatefulWidget {
+  final List<Map<String, dynamic>> delta;
+  const _QuillReadOnlyView({required this.delta});
 
   @override
-  State<QuillReadOnlyView> createState() => _QuillReadOnlyViewState();
+  State<_QuillReadOnlyView> createState() => _QuillReadOnlyViewState();
 }
 
-class _QuillReadOnlyViewState extends State<QuillReadOnlyView> {
-  late quill.QuillController c;
+class _QuillReadOnlyViewState extends State<_QuillReadOnlyView> {
+  late quill.QuillController _controller;
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    c = quill.QuillController(
-      document: quill.Document.fromJson(widget.delta),
-      selection: const TextSelection.collapsed(offset: 0),
-    );
-    c.readOnly = true; // ✅ READ-ONLY MODE moved to controller :contentReference[oaicite:3]{index=3}
+    _controller = _makeController(widget.delta);
   }
 
   @override
-  void didUpdateWidget(covariant QuillReadOnlyView oldWidget) {
+  void didUpdateWidget(covariant _QuillReadOnlyView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.delta != widget.delta) {
-      c = quill.QuillController(
-        document: quill.Document.fromJson(widget.delta),
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-      c.readOnly = true;
+    // delta changed => rebuild document
+    if (!_sameDelta(oldWidget.delta, widget.delta)) {
+      _controller = _makeController(widget.delta);
       setState(() {});
     }
   }
 
   @override
+  void dispose() {
+    _focusNode.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  quill.QuillController _makeController(List<Map<String, dynamic>> delta) {
+    final doc = quill.Document.fromJson(delta);
+    final c = quill.QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    c.readOnly = true; // ✅ this is correct in flutter_quill 11.x
+    return c;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return quill.QuillEditor.basic(
-      controller: c,
-      config: const quill.QuillEditorConfig(), // ✅ New API :contentReference[oaicite:4]{index=4}
+    // ✅ IMPORTANT: Preview page already has SingleChildScrollView
+    // So we make QuillEditor non-interactive and let outer scroll handle it.
+    return IgnorePointer(
+      ignoring: true, // ✅ read-only + no focus issues
+      child: quill.QuillEditor(
+        controller: _controller,
+        focusNode: _focusNode,
+        scrollController: _scrollController,
+        config: const quill.QuillEditorConfig(
+          autoFocus: false,
+          expands: false,
+          padding: EdgeInsets.zero,
+          showCursor: false,
+        ),
+      ),
     );
   }
 }
 
+/// Injects block-level "align" attribute so Quill renders alignment.
+List<Map<String, dynamic>> _deltaWithBlockAlignment(
+    List<Map<String, dynamic>> delta, String align) {
+  if (align == 'left') return delta;
+  final out = <Map<String, dynamic>>[];
+  for (final op in delta) {
+    final map = Map<String, dynamic>.from(op);
+    final insert = map['insert'];
+    final isLine = insert is String && insert.toString().contains('\n');
+    if (isLine) {
+      final attrs = map['attributes'] is Map
+          ? Map<String, dynamic>.from(map['attributes'] as Map)
+          : <String, dynamic>{};
+      attrs['align'] = align;
+      map['attributes'] = attrs;
+    }
+    out.add(map);
+  }
+  return out;
+}
+
+/// ---------- helpers ----------
+List<Map<String, dynamic>> _normalizeDelta(dynamic deltaAny) {
+  // if delta is missing, return minimal doc
+  if (deltaAny is! List) {
+    return const [
+      {"insert": "\n"}
+    ];
+  }
+
+  final list = <Map<String, dynamic>>[];
+  for (final e in deltaAny) {
+    if (e is Map) list.add(Map<String, dynamic>.from(e));
+  }
+
+  if (list.isEmpty) {
+    return const [
+      {"insert": "\n"}
+    ];
+  }
+
+  // ✅ Quill requires final newline
+  final last = list.last['insert'];
+  if (last is String && !last.endsWith('\n')) {
+    list.add({"insert": "\n"});
+  }
+  return list;
+}
+
+bool _sameDelta(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i].toString() != b[i].toString()) return false;
+  }
+  return true;
+}
