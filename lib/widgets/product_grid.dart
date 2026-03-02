@@ -3,11 +3,14 @@ import '../theme_library.dart';
 import '../theme/appdrop_theme_scope.dart';
 
 Widget buildProductGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
+  final enabled = node.b('enabled', def: true);
+  if (!enabled) return const SizedBox.shrink();
+
   final itemsRaw = node.l('items') ?? const [];
   if (itemsRaw.isEmpty) return const SizedBox.shrink();
 
   final spacingDp = node.d('spacingDp', def: 12);
-  final maxTileDp = node.d('maxTileWidthDp', def: 190);
+  const double maxTileDp = 190;
 
   return LayoutBuilder(
     builder: (ctx, constraints) {

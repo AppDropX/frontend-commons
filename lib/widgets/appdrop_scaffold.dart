@@ -47,10 +47,35 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
   int tabIndex = 0;
   int bottomIndex = 0;
 
+  /// Splits pageJson into inline blocks and CTA blocks with scrollStyle "fixed_at_bottom".
+  static void _splitPageJson(List<dynamic> pageJson, List<dynamic> inlineOut, List<dynamic> fixedBottomOut) {
+    for (final item in pageJson) {
+      final map = item is Map ? item as Map<String, dynamic> : null;
+      if (map == null) {
+        inlineOut.add(item);
+        continue;
+      }
+      final type = (map['type'] ?? '').toString();
+      final scrollStyle = (map['scrollStyle'] ?? 'inline').toString().toLowerCase();
+      if (type == 'cta_button' && scrollStyle == 'fixed_at_bottom') {
+        fixedBottomOut.add(Map<String, dynamic>.from(map));
+      } else {
+        inlineOut.add(item);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cfg = AppDropThemeConfig.fromJson(widget.themeJson);
-    final nodes = WidgetNode.listFromJson(widget.pageJson);
+    final inlineJson = <dynamic>[];
+    final fixedBottomJson = <dynamic>[];
+    _splitPageJson(widget.pageJson, inlineJson, fixedBottomJson);
+
+    final inlineNodes = WidgetNode.listFromJson(inlineJson);
+    final fixedBottomNodes = fixedBottomJson.isEmpty
+        ? <WidgetNode>[]
+        : WidgetNode.listFromJson(fixedBottomJson);
 
     final hasDrawer = cfg.sideMenu.menuItems.isNotEmpty;
     final bottomItems = cfg.bottomBar.items.where((e) => e.enabled).toList();
@@ -58,6 +83,12 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
 
 
     if (bottomIndex >= bottomItems.length) bottomIndex = 0;
+
+    final registry = WidgetRegistry.defaults();
+    final onAction = widget.onAction != null
+        ? (dynamic ctx, Map<String, dynamic> action) =>
+            widget.onAction!.call(ctx as BuildContext, action)
+        : null;
 
     return AppDropThemeScope(
       config: cfg,
@@ -103,12 +134,35 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: AppDropRenderer(
-                    nodes: nodes,
-                    registry: WidgetRegistry.defaults(),
-                    onAction: (ctx, action) => widget.onAction?.call(ctx as BuildContext, action),
+                    nodes: inlineNodes,
+                    registry: registry,
+                    onAction: onAction,
                   ),
                 ),
               ),
+              if (fixedBottomNodes.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: AppDropRenderer(
+                      nodes: fixedBottomNodes,
+                      registry: registry,
+                      onAction: onAction,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

@@ -3,11 +3,16 @@ import 'responsive.dart';
 import 'widget_node.dart';
 import 'registry.dart';
 
+/// Default vertical space between blocks when rendered in a column.
+const double kDefaultBlockSpacing = 12.0;
+
 class AppDropRenderer extends StatelessWidget {
   final List<WidgetNode> nodes;
   final WidgetRegistry? registry;
   final double baseWidth;
   final AppDropActionHandler? onAction;
+  /// Vertical space between each block. Default is [kDefaultBlockSpacing].
+  final double blockSpacing;
 
   const AppDropRenderer({
     super.key,
@@ -15,6 +20,7 @@ class AppDropRenderer extends StatelessWidget {
     this.registry,
     this.baseWidth = 320,
     this.onAction,
+    this.blockSpacing = kDefaultBlockSpacing,
   });
 
   @override
@@ -36,9 +42,16 @@ class AppDropRenderer extends StatelessWidget {
           return builder(ctx, node, env);
         }
 
+        final children = <Widget>[];
+        for (var i = 0; i < nodes.length; i++) {
+          if (i > 0 && blockSpacing > 0) {
+            children.add(SizedBox(height: blockSpacing));
+          }
+          children.add(renderNode(context, nodes[i]));
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [for (final n in nodes) renderNode(context, n)],
+          children: children,
         );
       },
     );

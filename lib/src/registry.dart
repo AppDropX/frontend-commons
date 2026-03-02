@@ -12,6 +12,10 @@ import '../widgets/carousel.dart';
 import '../widgets/product_block.dart';
 import '../widgets/product_grid.dart';
 import '../widgets/video_block.dart';
+import '../widgets/countdown_timer.dart';
+import '../widgets/cta_button.dart';
+import '../widgets/discount_code.dart';
+import '../widgets/product_description.dart';
 
 typedef NodeBuilder = Widget Function(BuildContext ctx, WidgetNode node, AppDropBuildEnv env);
 
@@ -34,6 +38,10 @@ class WidgetRegistry {
     r.register('product_block', buildProductBlock);
     r.register('product_grid', buildProductGrid);
     r.register('video', buildVideoBlock);
+    r.register('countdown_timer', buildCountdownTimer);
+    r.register('cta_button', buildCtaButton);
+    r.register('discount_code', buildDiscountCode);
+    r.register('product_description', buildProductDescription);
     return r;
   }
 }
