@@ -16,6 +16,9 @@ import '../widgets/countdown_timer.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/discount_code.dart';
 import '../widgets/product_description.dart';
+import '../widgets/product_variant.dart';
+import '../widgets/sort_filter.dart';
+import '../widgets/cart_item.dart';
 
 typedef NodeBuilder = Widget Function(BuildContext ctx, WidgetNode node, AppDropBuildEnv env);
 
@@ -42,6 +45,9 @@ class WidgetRegistry {
     r.register('cta_button', buildCtaButton);
     r.register('discount_code', buildDiscountCode);
     r.register('product_description', buildProductDescription);
+    r.register('product_variant', buildProductVariant);
+    r.register('sort_filter', buildSortFilter);
+    r.register('cart_item', buildCartItem);
     return r;
   }
 }
