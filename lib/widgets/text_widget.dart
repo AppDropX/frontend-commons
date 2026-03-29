@@ -6,7 +6,9 @@ Widget buildTextWidget(BuildContext context, WidgetNode node, AppDropBuildEnv en
   final text = node.s('text', def: '');
   final size = node.d('sizeSp', def: 14);
   final weight = node.s('weight', def: 'regular').toLowerCase();
-  final color = parseHexColor(node.s('color', def: '')) ?? const Color(0xFF111827);
+  final scope = AppDropThemeScope.maybeOf(context);
+  final fallback = scope?.appStyling.fontIconColor ?? const Color(0xFF111827);
+  final color = parseHexColor(node.s('color', def: '')) ?? fallback;
 
   final alignStr = node.s('align', def: 'left').toLowerCase();
   final align = alignStr == 'center'

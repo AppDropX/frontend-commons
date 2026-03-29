@@ -5,14 +5,20 @@ import 'appdrop_theme_config.dart';
 class AppDropThemeData {
   static ThemeData buildFromConfig(AppDropThemeConfig cfg) {
     final font = cfg.appStyling.fontFamily.trim();
+    final content = cfg.appStyling.fontIconColor;
 
     final base = ThemeData(useMaterial3: true);
 
-    final tt = _textTheme(font, base.textTheme);
+    final tt = _textTheme(font, base.textTheme).apply(
+      bodyColor: content,
+      displayColor: content,
+    );
 
     return base.copyWith(
       textTheme: tt,
-      primaryTextTheme: tt, // ✅ AppBar/Buttons etc
+      primaryTextTheme: tt,
+      iconTheme: IconThemeData(color: content),
+      primaryIconTheme: IconThemeData(color: content),
     );
   }
 

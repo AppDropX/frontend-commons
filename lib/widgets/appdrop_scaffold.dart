@@ -97,6 +97,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
         child: Scaffold(
           drawer: hasDrawer
               ? AppDropSideMenu(
+            styling: cfg.appStyling,
             config: cfg.sideMenu,
             onItemTap: (item) => widget.onMenuItemTap?.call(item),
           )

@@ -60,6 +60,7 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final priceColor = parseHexColor(s('price_color', '#000000')) ?? Colors.black;
   final discountColor = parseHexColor(s('discount_color', '#FF0000')) ?? Colors.red;
   final ratingColor = parseHexColor(s('rating_color', '#FFA500')) ?? Colors.orange;
+  final ratingFontColor = parseHexColor(s('rating_font_color', '#000000')) ?? Colors.black;
   final titleColor = parseHexColor(s('title_color', '#000000')) ?? Colors.black;
 
   final product = node.m('product') ?? <String, dynamic>{};
@@ -142,10 +143,23 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
               children: [
                 Icon(Icons.star, size: env.r.dp(16), color: ratingColor),
                 SizedBox(width: env.r.dp(4)),
-                Text(rating.toStringAsFixed(1), style: TextStyle(fontSize: env.r.sp(12), fontWeight: FontWeight.w600)),
+                Text(
+                  rating.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: env.r.sp(12),
+                    fontWeight: FontWeight.w600,
+                    color: ratingFontColor,
+                  ),
+                ),
                 if (showRatingCount && ratingCount > 0) ...[
                   SizedBox(width: env.r.dp(6)),
-                  Text('($ratingCount)', style: TextStyle(fontSize: env.r.sp(12), color: Colors.black54)),
+                  Text(
+                    '($ratingCount)',
+                    style: TextStyle(
+                      fontSize: env.r.sp(12),
+                      color: ratingFontColor.withValues(alpha: 0.54),
+                    ),
+                  ),
                 ]
               ],
             ),

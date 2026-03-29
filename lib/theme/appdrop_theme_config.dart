@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
 import '../utils/color.dart';
 
+/// Tab / side-menu row can be a legacy [String] or a map with at least [title].
+String labelFromThemeNavEntry(dynamic e) {
+  if (e == null) return '';
+  if (e is String) return e;
+  if (e is Map) {
+    final m = Map<String, dynamic>.from(e);
+    final t = m['title'] ?? m['name'];
+    if (t != null) return t.toString();
+  }
+  return e.toString();
+}
+
 class AppStylingConfig {
   final String fontFamily;
+  /// Default body text & icons (theme + blocks that inherit).
+  final Color fontIconColor;
 
   final Color toolbarBg;
   final Color toolbarFont;
@@ -14,8 +28,12 @@ class AppStylingConfig {
   final String bottomStyle;     // Underline
   final String bottomIconStyle; // With Labels
 
+  final Color sideNavBg;
+  final Color sideNavFontColor;
+
   const AppStylingConfig({
     required this.fontFamily,
+    required this.fontIconColor,
     required this.toolbarBg,
     required this.toolbarFont,
     required this.bottomBg,
@@ -23,18 +41,30 @@ class AppStylingConfig {
     required this.bottomUnselected,
     required this.bottomStyle,
     required this.bottomIconStyle,
+    required this.sideNavBg,
+    required this.sideNavFontColor,
   });
 
   factory AppStylingConfig.fromJson(Map<String, dynamic> json) {
+    // Builder/API use `font_color` / `toolbar_font_color`; legacy JSON used
+    // `font_icon_color` / `toolbar_font`.
+    final fontIcon = parseHexColor(json['font_icon_color']?.toString()) ??
+        parseHexColor(json['font_color']?.toString());
+    final toolbarText = parseHexColor(json['toolbar_font']?.toString()) ??
+        parseHexColor(json['toolbar_font_color']?.toString());
+
     return AppStylingConfig(
       fontFamily: (json['font_family'] ?? 'Poppins').toString(),
+      fontIconColor: fontIcon ?? const Color(0xFF111111),
       toolbarBg: parseHexColor(json['toolbar_bg']?.toString()) ?? const Color(0xFFFFFA66),
-      toolbarFont: parseHexColor(json['toolbar_font']?.toString()) ?? const Color(0xFF111111),
+      toolbarFont: toolbarText ?? const Color(0xFF111111),
       bottomBg: parseHexColor(json['bottom_bg']?.toString()) ?? Colors.white,
       bottomSelected: parseHexColor(json['bottom_selected']?.toString()) ?? const Color(0xFFF76B0A),
       bottomUnselected: parseHexColor(json['bottom_unselected']?.toString()) ?? const Color(0xFF9CA3AF),
       bottomStyle: (json['bottom_style'] ?? 'Underline').toString(),
       bottomIconStyle: (json['bottom_icon_style'] ?? 'With Labels').toString(),
+      sideNavBg: parseHexColor(json['side_nav_bg']?.toString()) ?? const Color(0xFF54A685),
+      sideNavFontColor: parseHexColor(json['side_nav_font_color']?.toString()) ?? const Color(0xFF6A4571),
     );
   }
 }
@@ -79,7 +109,7 @@ class SideMenuConfig {
   factory SideMenuConfig.fromJson(Map<String, dynamic> json) {
     final items = (json['menu_items'] is List) ? (json['menu_items'] as List) : const [];
     return SideMenuConfig(
-      menuItems: items.map((e) => e.toString()).toList(),
+      menuItems: items.map(labelFromThemeNavEntry).toList(),
       showDividers: (json['show_dividers'] ?? true) == true,
     );
   }
@@ -91,7 +121,7 @@ class TopNavigationConfig {
 
   factory TopNavigationConfig.fromJson(Map<String, dynamic> json) {
     final list = (json['tabs'] is List) ? (json['tabs'] as List) : const [];
-    return TopNavigationConfig(tabs: list.map((e) => e.toString()).toList());
+    return TopNavigationConfig(tabs: list.map(labelFromThemeNavEntry).toList());
   }
 }
 
