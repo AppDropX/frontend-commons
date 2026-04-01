@@ -1,9 +1,10 @@
 import 'package:flutter/widgets.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/network_image_url.dart';
 
 Widget buildImageBanner(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
-  final url = node.s('url', def: '');
+  final url = sanitizedNetworkImageUrl(node.s('url', def: ''));
   final aspect = node.d('aspectRatio', def: 16 / 9);
   final radius = node.d('radiusDp', def: 16);
   final bg = parseHexColor(node.s('bgColor', def: '')) ?? const Color(0xFFE5E7EB);
@@ -16,7 +17,13 @@ Widget buildImageBanner(BuildContext context, WidgetNode node, AppDropBuildEnv e
       aspectRatio: aspect <= 0 ? (16 / 9) : aspect,
       child: Container(
         color: bg,
-        child: url.isEmpty ? const SizedBox.expand() : Image.network(url, fit: BoxFit.cover),
+        child: url == null
+            ? const SizedBox.expand()
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => ColoredBox(color: bg, child: const SizedBox.expand()),
+              ),
       ),
     ),
   );

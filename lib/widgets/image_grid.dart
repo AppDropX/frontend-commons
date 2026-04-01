@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/network_image_url.dart';
 
 Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   final imgsRaw = node.l('images') ?? const [];
@@ -26,11 +27,18 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
       childAspectRatio: aspect <= 0 ? 1.0 : aspect,
     ),
     itemBuilder: (_, i) {
+      final u = sanitizedNetworkImageUrl(images[i]);
       return ClipRRect(
         borderRadius: BorderRadius.circular(env.r.dp(radius)),
         child: Container(
           color: bg,
-          child: Image.network(images[i], fit: BoxFit.cover),
+          child: u == null
+              ? const SizedBox.expand()
+              : Image.network(
+                  u,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => ColoredBox(color: bg, child: const SizedBox.expand()),
+                ),
         ),
       );
     },

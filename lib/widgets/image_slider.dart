@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/network_image_url.dart';
 
 class _SliderState extends StatefulWidget {
   final List<String> images;
@@ -59,9 +60,17 @@ class _SliderStateState extends State<_SliderState> {
       itemCount: widget.images.length,
       onPageChanged: (i) => setState(() => index = i),
       itemBuilder: (_, i) {
+        final u = sanitizedNetworkImageUrl(widget.images[i]);
         return ClipRRect(
           borderRadius: BorderRadius.circular(widget.radiusDp),
-          child: Image.network(widget.images[i], fit: BoxFit.cover),
+          child: u == null
+              ? ColoredBox(color: const Color(0xFFE5E7EB), child: const SizedBox.expand())
+              : Image.network(
+                  u,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const ColoredBox(color: Color(0xFFE5E7EB), child: SizedBox.expand()),
+                ),
         );
       },
     );

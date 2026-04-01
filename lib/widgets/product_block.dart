@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/network_image_url.dart';
 import '../theme/appdrop_theme_scope.dart';
 
 Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
@@ -66,7 +67,7 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final product = node.m('product') ?? <String, dynamic>{};
   final title = (product['title'] ?? '').toString();
   final vendor = (product['vendor'] ?? '').toString();
-  final imageUrl = (product['imageUrl'] ?? '').toString();
+  final imageUrl = sanitizedNetworkImageUrl((product['imageUrl'] ?? '').toString());
 
   final sellingPrice = _toDouble(product['sellingPrice']);
   final retailPrice = _toDouble(product['retailPrice']);
@@ -92,13 +93,15 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
       aspectRatio: aspect,
       child: Container(
         color: imageBg,
-        child: imageUrl.isEmpty
+        child: imageUrl == null
             ? const SizedBox.expand()
             : Image.network(
-          imageUrl,
-          fit: boxFit, //  crop/fit toggle works
-          alignment: Alignment.center,
-        ),
+                imageUrl,
+                fit: boxFit, //  crop/fit toggle works
+                alignment: Alignment.center,
+                errorBuilder: (_, __, ___) =>
+                    ColoredBox(color: imageBg, child: const SizedBox.expand()),
+              ),
       ),
     ),
   );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
+import '../utils/network_image_url.dart';
 
 /// Cart item row for cart page. Fixed block on cart page (not in add-block library).
 /// Props: enabled, imageUrl, productTitle, price, variant, quantity.
@@ -8,7 +9,7 @@ Widget buildCartItem(BuildContext context, WidgetNode node, AppDropBuildEnv env)
   if (!enabled) return const SizedBox.shrink();
 
   final r = env.r;
-  final imageUrl = node.s('imageUrl', def: '');
+  final imageUrl = sanitizedNetworkImageUrl(node.s('imageUrl', def: ''));
   final productTitle = node.s('productTitle', def: 'Product title');
   final price = node.s('price', def: '₹999');
   final variant = node.s('variant', def: 'Variant');
@@ -35,7 +36,7 @@ class _CartItemWidget extends StatelessWidget {
   });
 
   final R r;
-  final String imageUrl;
+  final String? imageUrl;
   final String productTitle;
   final String price;
   final String variant;
@@ -58,10 +59,10 @@ class _CartItemWidget extends StatelessWidget {
               width: r.dp(80),
               height: r.dp(80),
               color: Colors.grey.shade200,
-              child: imageUrl.isEmpty
+              child: imageUrl == null
                   ? null
                   : Image.network(
-                      imageUrl,
+                      imageUrl!,
                       fit: BoxFit.cover,
                       width: r.dp(80),
                       height: r.dp(80),
