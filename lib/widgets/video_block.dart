@@ -14,16 +14,28 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
   final showControls = node.b('showControls', def: true);
   final muted = node.b('muted', def: false);
   final bg = parseHexColor(node.s('bgColor', def: '')) ?? const Color(0xFF1F2937);
+  final tapAction = effectiveMediaTapAction(node);
+
+  Widget wrapTap(Widget child) {
+    if (tapAction == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => env.dispatchAction(context, tapAction),
+      child: child,
+    );
+  }
 
   if (url.isEmpty) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(env.r.dp(radius)),
-      child: AspectRatio(
-        aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
-        child: Container(
-          color: bg,
-          child: const Center(
-            child: Icon(Icons.videocam_off, size: 48, color: Colors.white54),
+    return wrapTap(
+      ClipRRect(
+        borderRadius: BorderRadius.circular(env.r.dp(radius)),
+        child: AspectRatio(
+          aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
+          child: Container(
+            color: bg,
+            child: const Center(
+              child: Icon(Icons.videocam_off, size: 48, color: Colors.white54),
+            ),
           ),
         ),
       ),
@@ -41,6 +53,9 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
         showControls: showControls,
         muted: muted,
         bgColor: bg,
+        redirectAction: tapAction,
+        env: env,
+        buildContext: context,
       ),
     ),
   );
@@ -54,6 +69,9 @@ class _VideoPlayer extends StatefulWidget {
     required this.showControls,
     required this.muted,
     required this.bgColor,
+    this.redirectAction,
+    this.env,
+    this.buildContext,
   });
 
   final String url;
@@ -62,6 +80,9 @@ class _VideoPlayer extends StatefulWidget {
   final bool showControls;
   final bool muted;
   final Color bgColor;
+  final Map<String, dynamic>? redirectAction;
+  final AppDropBuildEnv? env;
+  final BuildContext? buildContext;
 
   @override
   State<_VideoPlayer> createState() => _VideoPlayerState();
@@ -134,8 +155,56 @@ class _VideoPlayerState extends State<_VideoPlayer> {
         ),
       );
     }
+    final hasRedirect =
+        widget.redirectAction != null && widget.env != null && widget.buildContext != null;
+
+    Widget playCtrl() {
+      void toggle() {
+        if (_controller!.value.isPlaying) {
+          _controller!.pause();
+        } else {
+          _controller!.play();
+        }
+        setState(() {});
+      }
+
+      if (hasRedirect) {
+        return Positioned(
+          right: 6,
+          bottom: 6,
+          child: Material(
+            color: Colors.black45,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: IconButton(
+              onPressed: toggle,
+              icon: Icon(
+                _controller!.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+        );
+      }
+
+      return GestureDetector(
+        onTap: toggle,
+        child: AnimatedOpacity(
+          opacity: 1,
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            _controller!.value.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+            size: 64,
+            color: Colors.white.withOpacity(0.9),
+          ),
+        ),
+      );
+    }
+
     return Stack(
       alignment: Alignment.center,
+      clipBehavior: Clip.none,
       children: [
         SizedBox.expand(
           child: FittedBox(
@@ -147,26 +216,18 @@ class _VideoPlayerState extends State<_VideoPlayer> {
             ),
           ),
         ),
-        if (widget.showControls)
-          GestureDetector(
-            onTap: () {
-              if (_controller!.value.isPlaying) {
-                _controller!.pause();
-              } else {
-                _controller!.play();
-              }
-              setState(() {});
-            },
-            child: AnimatedOpacity(
-              opacity: 1,
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                _controller!.value.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                size: 64,
-                color: Colors.white.withOpacity(0.9),
-              ),
+        if (hasRedirect)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                final ctx = widget.buildContext!;
+                if (!ctx.mounted) return;
+                widget.env!.dispatchAction(ctx, widget.redirectAction!);
+              },
             ),
           ),
+        if (widget.showControls) playCtrl(),
       ],
     );
   }

@@ -15,10 +15,12 @@ class R {
   }
 
   double dp(num v) => v.toDouble() * scale;
-  double sp(num v, {double min = 10, double max = 26}) {
+  double sp(num v, {num min = 10, num max = 26}) {
+    final minD = min.toDouble();
+    final maxD = max.toDouble();
     final val = v.toDouble() * scale;
-    if (val < min) return min;
-    if (val > max) return max;
+    if (val < minD) return minD;
+    if (val > maxD) return maxD;
     return val;
   }
 }

@@ -78,12 +78,22 @@ class WidgetNode {
 
 typedef AppDropActionHandler = void Function(dynamic ctx, Map<String, dynamic> action);
 
+/// Returns how many units of [productId] are in the cart (0 if none). Used by PLP product grid.
+typedef CartQuantityResolver = int Function(String productId);
+
 class AppDropBuildEnv {
   final R r;
   final dynamic Function(dynamic ctx, WidgetNode node) renderNode;
   final AppDropActionHandler? onAction;
+  /// When set, product grid can show quantity stepper instead of only "Add to cart".
+  final CartQuantityResolver? cartQuantityForProduct;
 
-  AppDropBuildEnv({required this.r, required this.renderNode, this.onAction});
+  AppDropBuildEnv({
+    required this.r,
+    required this.renderNode,
+    this.onAction,
+    this.cartQuantityForProduct,
+  });
 
   void dispatchAction(dynamic ctx, Map<String, dynamic> action) {
     onAction?.call(ctx, action);

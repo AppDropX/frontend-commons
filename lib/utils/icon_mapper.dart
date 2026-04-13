@@ -36,6 +36,9 @@ IconData iconFromNameForNav(String name, bool selected) {
       return selected ? Icons.star : Icons.star_border;
     case 'menu':
       return Icons.menu;
+    case 'arrow_back':
+    case 'back':
+      return Icons.arrow_back_ios_new;
     default:
       return selected ? Icons.circle : Icons.circle_outlined;
   }

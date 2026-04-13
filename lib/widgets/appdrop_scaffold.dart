@@ -19,12 +19,35 @@ class AppDropScaffold extends StatefulWidget {
   final String title;
   final double appbarHeight;
 
-  final void Function(int index, String tab)? onTabChanged;
+  final void Function(int index, TopNavTabEntry tab)? onTabChanged;
+
+  /// Selects which top tab is highlighted (e.g. current storefront page).
+  final int initialTopTabIndex;
   final void Function(String item)? onMenuItemTap;
   final void Function(int index, BottomBarItemConfig item)? onBottomNavTap;
   final VoidCallback? onCartTap;
 
   final void Function(BuildContext ctx, Map<String, dynamic> action)? onAction;
+  final bool showTopTabs;
+
+  /// When false, omits [AppDropBottomNav] (e.g. product detail pushed above the shell).
+  final bool showBottomNav;
+
+  /// Index among **enabled** bottom bar items (same order as [AppDropBottomNav]).
+  final int initialBottomNavIndex;
+
+  /// PLP product grid: per-product quantity in cart for stepper UI.
+  final CartQuantityResolver? cartQuantityForProduct;
+
+  /// Total units in cart; badge on app bar cart icon when > 0.
+  final int? cartBadgeCount;
+
+  /// Optional per-page toolbar (Home / PLP / custom). When null, uses [title] + drawer + cart.
+  final PageToolbarConfig? pageToolbar;
+
+  final VoidCallback? onWishlistTap;
+  final VoidCallback? onSearchTap;
+  final VoidCallback? onBack;
 
   const AppDropScaffold({
     super.key,
@@ -32,11 +55,21 @@ class AppDropScaffold extends StatefulWidget {
     required this.pageJson,
     required this.appbarHeight,
     this.title = 'Store',
+    this.initialBottomNavIndex = 0,
     this.onTabChanged,
+    this.initialTopTabIndex = 0,
     this.onMenuItemTap,
     this.onBottomNavTap,
     this.onCartTap,
     this.onAction,
+    this.showTopTabs = true,
+    this.showBottomNav = true,
+    this.cartQuantityForProduct,
+    this.cartBadgeCount,
+    this.pageToolbar,
+    this.onWishlistTap,
+    this.onSearchTap,
+    this.onBack,
   });
 
   @override
@@ -44,8 +77,26 @@ class AppDropScaffold extends StatefulWidget {
 }
 
 class _AppDropScaffoldState extends State<AppDropScaffold> {
-  int tabIndex = 0;
-  int bottomIndex = 0;
+  late int tabIndex;
+  late int bottomIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    bottomIndex = widget.initialBottomNavIndex;
+    tabIndex = widget.initialTopTabIndex;
+  }
+
+  @override
+  void didUpdateWidget(AppDropScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialBottomNavIndex != widget.initialBottomNavIndex) {
+      bottomIndex = widget.initialBottomNavIndex;
+    }
+    if (oldWidget.initialTopTabIndex != widget.initialTopTabIndex) {
+      tabIndex = widget.initialTopTabIndex;
+    }
+  }
 
   /// Splits pageJson into inline blocks and CTA blocks with scrollStyle "fixed_at_bottom".
   static void _splitPageJson(List<dynamic> pageJson, List<dynamic> inlineOut, List<dynamic> fixedBottomOut) {
@@ -68,6 +119,10 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
   @override
   Widget build(BuildContext context) {
     final cfg = AppDropThemeConfig.fromJson(widget.themeJson);
+    final topItems = cfg.topNavigation.items;
+    final safeTopTabIndex = topItems.isEmpty
+        ? 0
+        : tabIndex.clamp(0, topItems.length - 1);
     final inlineJson = <dynamic>[];
     final fixedBottomJson = <dynamic>[];
     _splitPageJson(widget.pageJson, inlineJson, fixedBottomJson);
@@ -107,28 +162,38 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
             styling: cfg.appStyling,
             title: widget.title,
             showMenu: hasDrawer,
-            showCart: true,
+            showCart: widget.pageToolbar == null,
             onCartTap: widget.onCartTap,
+            cartBadgeCount: widget.cartBadgeCount,
+            pageToolbar: widget.pageToolbar,
+            hasDrawer: hasDrawer,
+            onBack: widget.onBack,
+            onWishlistTap: widget.onWishlistTap,
+            onSearchTap: widget.onSearchTap,
           ),
-          bottomNavigationBar: AppDropBottomNav(
-            styling: cfg.appStyling,
-            config: cfg.bottomBar,
-            currentIndex: bottomIndex,
-            onTap: (i) {
-              setState(() => bottomIndex = i);
-              if (i < bottomItems.length) widget.onBottomNavTap?.call(i, bottomItems[i]);
-            },
-          ),
+          bottomNavigationBar: widget.showBottomNav
+              ? AppDropBottomNav(
+                  styling: cfg.appStyling,
+                  config: cfg.bottomBar,
+                  currentIndex: bottomIndex,
+                  onTap: (i) {
+                    setState(() => bottomIndex = i);
+                    if (i < bottomItems.length) {
+                      widget.onBottomNavTap?.call(i, bottomItems[i]);
+                    }
+                  },
+                )
+              : null,
           body: Column(
             children: [
-              if (cfg.topNavigation.tabs.isNotEmpty)
+              if (widget.showTopTabs && topItems.isNotEmpty)
                 AppDropTopTabs(
                   styling: cfg.appStyling,
                   config: cfg.topNavigation,
-                  selectedIndex: tabIndex,
+                  selectedIndex: safeTopTabIndex,
                   onChanged: (i) {
                     setState(() => tabIndex = i);
-                    widget.onTabChanged?.call(i, cfg.topNavigation.tabs[i]);
+                    widget.onTabChanged?.call(i, cfg.topNavigation.items[i]);
                   },
                 ),
               Expanded(
@@ -138,6 +203,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                     nodes: inlineNodes,
                     registry: registry,
                     onAction: onAction,
+                    cartQuantityForProduct: widget.cartQuantityForProduct,
                   ),
                 ),
               ),
@@ -161,6 +227,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                       nodes: fixedBottomNodes,
                       registry: registry,
                       onAction: onAction,
+                      cartQuantityForProduct: widget.cartQuantityForProduct,
                     ),
                   ),
                 ),

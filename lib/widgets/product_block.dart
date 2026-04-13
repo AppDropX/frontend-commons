@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
 import '../utils/network_image_url.dart';
-import '../theme/appdrop_theme_scope.dart';
 
 Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   final cfg = AppDropThemeScope.maybeOf(context);
@@ -87,8 +86,16 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final priceWeight = priceFont == 'bold' ? FontWeight.w700 : FontWeight.w400;
   final discountSp = _discountSp(discountSize, env.r);
 
+  final embedInGrid = b('embed_in_grid', false);
+  final imageRadius = embedInGrid
+      ? BorderRadius.only(
+          topLeft: Radius.circular(env.r.dp(radiusDp)),
+          topRight: Radius.circular(env.r.dp(radiusDp)),
+        )
+      : BorderRadius.circular(env.r.dp(radiusDp));
+
   final image = ClipRRect(
-    borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
+    borderRadius: imageRadius,
     child: AspectRatio(
       aspectRatio: aspect,
       child: Container(
@@ -218,6 +225,14 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [image, meta],
   );
+
+  if (embedInGrid) {
+    Widget inner = body;
+    if (action != null) {
+      inner = InkWell(onTap: () => env.dispatchAction(context, action), child: inner);
+    }
+    return inner;
+  }
 
   Widget card = ClipRRect(
     borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),

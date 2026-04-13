@@ -9,7 +9,7 @@ Widget buildImageBanner(BuildContext context, WidgetNode node, AppDropBuildEnv e
   final radius = node.d('radiusDp', def: 16);
   final bg = parseHexColor(node.s('bgColor', def: '')) ?? const Color(0xFFE5E7EB);
 
-  final action = node.m('action');
+  final action = effectiveMediaTapAction(node);
 
   Widget child = ClipRRect(
     borderRadius: BorderRadius.circular(env.r.dp(radius)),

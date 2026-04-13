@@ -6,7 +6,10 @@ import '../utils/network_image_url.dart';
 
 class _SliderState extends StatefulWidget {
   final List<String> images;
-  final double aspectRatio;
+  final List<dynamic>? imageRedirects;
+  final AppDropBuildEnv env;
+  final BuildContext hostContext;
+
   final double radiusDp;
   final bool showIndicator;
   final bool autoPlay;
@@ -14,16 +17,24 @@ class _SliderState extends StatefulWidget {
 
   final double dotSizeDp;
   final double dotGapDp;
+  final Color dotActive;
+  final Color dotInactive;
+  final double dotBottomPadding;
 
   const _SliderState({
     required this.images,
-    required this.aspectRatio,
+    required this.imageRedirects,
+    required this.env,
+    required this.hostContext,
     required this.radiusDp,
     required this.showIndicator,
     required this.autoPlay,
     required this.intervalMs,
     required this.dotSizeDp,
     required this.dotGapDp,
+    required this.dotActive,
+    required this.dotInactive,
+    required this.dotBottomPadding,
   });
 
   @override
@@ -55,24 +66,58 @@ class _SliderStateState extends State<_SliderState> {
 
   @override
   Widget build(BuildContext context) {
-    return PageView.builder(
-      controller: controller,
-      itemCount: widget.images.length,
-      onPageChanged: (i) => setState(() => index = i),
-      itemBuilder: (_, i) {
-        final u = sanitizedNetworkImageUrl(widget.images[i]);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(widget.radiusDp),
-          child: u == null
-              ? ColoredBox(color: const Color(0xFFE5E7EB), child: const SizedBox.expand())
-              : Image.network(
-                  u,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const ColoredBox(color: Color(0xFFE5E7EB), child: SizedBox.expand()),
-                ),
-        );
-      },
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: controller,
+          itemCount: widget.images.length,
+          onPageChanged: (i) => setState(() => index = i),
+          itemBuilder: (_, i) {
+            final u = sanitizedNetworkImageUrl(widget.images[i]);
+            final action = actionFromImageRedirectsAt(widget.imageRedirects, i);
+            Widget slide = ClipRRect(
+              borderRadius: BorderRadius.circular(widget.radiusDp),
+              child: u == null
+                  ? const ColoredBox(color: Color(0xFFE5E7EB), child: SizedBox.expand())
+                  : Image.network(
+                      u,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const ColoredBox(color: Color(0xFFE5E7EB), child: SizedBox.expand()),
+                    ),
+            );
+            if (action != null) {
+              slide = GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => widget.env.dispatchAction(widget.hostContext, action),
+                child: slide,
+              );
+            }
+            return slide;
+          },
+        ),
+        if (widget.showIndicator && widget.images.length > 1)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: widget.dotBottomPadding),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(widget.images.length, (i) {
+                  return Container(
+                    margin: EdgeInsets.symmetric(horizontal: widget.dotGapDp / 2),
+                    width: widget.dotSizeDp,
+                    height: widget.dotSizeDp,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i == index ? widget.dotActive : widget.dotInactive,
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -98,41 +143,20 @@ Widget buildImageSlider(BuildContext context, WidgetNode node, AppDropBuildEnv e
     borderRadius: BorderRadius.circular(radius),
     child: AspectRatio(
       aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
-      child: Stack(
-        children: [
-          _SliderState(
-            images: images,
-            aspectRatio: aspect,
-            radiusDp: radius,
-            showIndicator: showIndicator,
-            autoPlay: autoPlay,
-            intervalMs: interval,
-            dotSizeDp: dotSize,
-            dotGapDp: dotGap,
-          ),
-          if (showIndicator && images.length > 1)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: env.r.dp(10)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(images.length, (i) {
-                    final active = false; // indicator handled visually only
-                    return Container(
-                      margin: EdgeInsets.symmetric(horizontal: dotGap / 2),
-                      width: dotSize,
-                      height: dotSize,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: (i == 0) ? dotActive : dotInactive, // simple (you can refine)
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            )
-        ],
+      child: _SliderState(
+        images: images,
+        imageRedirects: imageRedirectsListFromNode(node),
+        env: env,
+        hostContext: context,
+        radiusDp: radius,
+        showIndicator: showIndicator,
+        autoPlay: autoPlay,
+        intervalMs: interval,
+        dotSizeDp: dotSize,
+        dotGapDp: dotGap,
+        dotActive: dotActive,
+        dotInactive: dotInactive,
+        dotBottomPadding: env.r.dp(10),
       ),
     ),
   );

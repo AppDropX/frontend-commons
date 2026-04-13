@@ -19,6 +19,7 @@ import '../widgets/product_description.dart';
 import '../widgets/product_variant.dart';
 import '../widgets/sort_filter.dart';
 import '../widgets/cart_item.dart';
+import '../widgets/empty_cart_state.dart';
 
 typedef NodeBuilder = Widget Function(BuildContext ctx, WidgetNode node, AppDropBuildEnv env);
 
@@ -48,6 +49,7 @@ class WidgetRegistry {
     r.register('product_variant', buildProductVariant);
     r.register('sort_filter', buildSortFilter);
     r.register('cart_item', buildCartItem);
+    r.register('empty_cart', buildEmptyCartState);
     return r;
   }
 }

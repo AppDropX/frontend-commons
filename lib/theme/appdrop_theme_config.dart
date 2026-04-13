@@ -115,13 +115,55 @@ class SideMenuConfig {
   }
 }
 
+/// One top navigation tab: label + link target (same shape as theme JSON entries).
+class TopNavTabEntry {
+  final String title;
+  final String linkType;
+  final String? linkValue;
+
+  const TopNavTabEntry({
+    required this.title,
+    this.linkType = 'system',
+    this.linkValue,
+  });
+
+  factory TopNavTabEntry.fromJson(dynamic e) {
+    if (e == null) {
+      return const TopNavTabEntry(title: '', linkType: 'system', linkValue: 'home-page');
+    }
+    if (e is String) {
+      return TopNavTabEntry(
+        title: e,
+        linkType: 'system',
+        linkValue: 'home-page',
+      );
+    }
+    if (e is Map) {
+      final m = Map<String, dynamic>.from(e);
+      return TopNavTabEntry(
+        title: labelFromThemeNavEntry(m),
+        linkType: (m['link_type'] ?? 'system').toString(),
+        linkValue: m['link_value']?.toString(),
+      );
+    }
+    return TopNavTabEntry(title: e.toString());
+  }
+}
+
 class TopNavigationConfig {
-  final List<String> tabs;
-  const TopNavigationConfig({required this.tabs});
+  /// Full tab rows from theme JSON (title, link_type, link_value).
+  final List<TopNavTabEntry> items;
+
+  const TopNavigationConfig({required this.items});
+
+  /// Tab labels for the horizontal bar.
+  List<String> get tabs => items.map((e) => e.title).toList();
 
   factory TopNavigationConfig.fromJson(Map<String, dynamic> json) {
     final list = (json['tabs'] is List) ? (json['tabs'] as List) : const [];
-    return TopNavigationConfig(tabs: list.map(labelFromThemeNavEntry).toList());
+    return TopNavigationConfig(
+      items: list.map(TopNavTabEntry.fromJson).toList(),
+    );
   }
 }
 

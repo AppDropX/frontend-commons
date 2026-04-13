@@ -16,7 +16,9 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
 
   final cols = (env.r.w / env.r.dp(maxTile)).floor().clamp(2, 4);
 
-  return GridView.builder(
+  final redirectList = imageRedirectsListFromNode(node);
+
+  Widget grid = GridView.builder(
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),
     itemCount: images.length,
@@ -28,7 +30,8 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
     ),
     itemBuilder: (_, i) {
       final u = sanitizedNetworkImageUrl(images[i]);
-      return ClipRRect(
+      final action = actionFromImageRedirectsAt(redirectList, i);
+      Widget tile = ClipRRect(
         borderRadius: BorderRadius.circular(env.r.dp(radius)),
         child: Container(
           color: bg,
@@ -41,6 +44,16 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
                 ),
         ),
       );
+      if (action != null) {
+        tile = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => env.dispatchAction(context, action),
+          child: tile,
+        );
+      }
+      return tile;
     },
   );
+
+  return grid;
 }

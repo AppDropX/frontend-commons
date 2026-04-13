@@ -21,7 +21,7 @@ class AppDropTopTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (config.tabs.isEmpty) return const SizedBox.shrink();
+    if (config.items.isEmpty) return const SizedBox.shrink();
 
     final baseStyle =
         Theme.of(context).textTheme.labelLarge ?? Theme.of(context).textTheme.bodyMedium!;
@@ -33,7 +33,7 @@ class AppDropTopTabs extends StatelessWidget {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: config.tabs.length,
+          itemCount: config.items.length,
           separatorBuilder: (_, __) => const SizedBox(width: 16),
           itemBuilder: (_, i) {
             final selected = i == selectedIndex;
@@ -54,7 +54,7 @@ class AppDropTopTabs extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              config.tabs[i],
+                              config.items[i].title,
                               maxLines: 1,
                               softWrap: false,
                               textAlign: TextAlign.center,
