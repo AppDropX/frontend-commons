@@ -23,7 +23,7 @@ class AppDropScaffold extends StatefulWidget {
 
   /// Selects which top tab is highlighted (e.g. current storefront page).
   final int initialTopTabIndex;
-  final void Function(String item)? onMenuItemTap;
+  final void Function(SideMenuItemEntry item)? onMenuItemTap;
   final void Function(int index, BottomBarItemConfig item)? onBottomNavTap;
   final VoidCallback? onCartTap;
 

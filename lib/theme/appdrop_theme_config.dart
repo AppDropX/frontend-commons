@@ -101,7 +101,7 @@ class BottomBarConfig {
 }
 
 class SideMenuConfig {
-  final List<String> menuItems;
+  final List<SideMenuItemEntry> menuItems;
   final bool showDividers;
 
   const SideMenuConfig({required this.menuItems, required this.showDividers});
@@ -109,9 +109,58 @@ class SideMenuConfig {
   factory SideMenuConfig.fromJson(Map<String, dynamic> json) {
     final items = (json['menu_items'] is List) ? (json['menu_items'] as List) : const [];
     return SideMenuConfig(
-      menuItems: items.map(labelFromThemeNavEntry).toList(),
+      menuItems: items.map(SideMenuItemEntry.fromJson).toList(),
       showDividers: (json['show_dividers'] ?? true) == true,
     );
+  }
+}
+
+/// One side menu row with link metadata.
+class SideMenuItemEntry {
+  final String title;
+  final String linkType;
+  final String? linkValue;
+  final String? urlOpenType;
+
+  const SideMenuItemEntry({
+    required this.title,
+    this.linkType = 'system',
+    this.linkValue,
+    this.urlOpenType,
+  });
+
+  factory SideMenuItemEntry.fromJson(dynamic e) {
+    if (e == null) {
+      return const SideMenuItemEntry(
+        title: '',
+        linkType: 'system',
+        linkValue: 'home-page',
+      );
+    }
+    if (e is String) {
+      return SideMenuItemEntry(
+        title: e,
+        linkType: 'system',
+        linkValue: 'home-page',
+      );
+    }
+    if (e is Map) {
+      final m = Map<String, dynamic>.from(e);
+      return SideMenuItemEntry(
+        title: labelFromThemeNavEntry(m),
+        linkType: (m['link_type'] ?? 'system').toString(),
+        linkValue: m['link_value']?.toString(),
+        urlOpenType: _normalizeUrlOpenType(m['url_open_type']),
+      );
+    }
+    return SideMenuItemEntry(title: e.toString());
+  }
+
+  static String? _normalizeUrlOpenType(dynamic raw) {
+    final v = raw?.toString().trim().toLowerCase();
+    if (v == null || v.isEmpty || v == 'null') return null;
+    if (v == 'internal' || v == 'external') return v;
+    return null;
   }
 }
 
@@ -120,16 +169,23 @@ class TopNavTabEntry {
   final String title;
   final String linkType;
   final String? linkValue;
+  /// API `url_open_type`: `internal` (webview) or `external` (browser).
+  final String? urlOpenType;
 
   const TopNavTabEntry({
     required this.title,
     this.linkType = 'system',
     this.linkValue,
+    this.urlOpenType,
   });
 
   factory TopNavTabEntry.fromJson(dynamic e) {
     if (e == null) {
-      return const TopNavTabEntry(title: '', linkType: 'system', linkValue: 'home-page');
+      return const TopNavTabEntry(
+        title: '',
+        linkType: 'system',
+        linkValue: 'home-page',
+      );
     }
     if (e is String) {
       return TopNavTabEntry(
@@ -144,9 +200,17 @@ class TopNavTabEntry {
         title: labelFromThemeNavEntry(m),
         linkType: (m['link_type'] ?? 'system').toString(),
         linkValue: m['link_value']?.toString(),
+        urlOpenType: _normalizeUrlOpenType(m['url_open_type']),
       );
     }
     return TopNavTabEntry(title: e.toString());
+  }
+
+  static String? _normalizeUrlOpenType(dynamic raw) {
+    final v = raw?.toString().trim().toLowerCase();
+    if (v == null || v.isEmpty || v == 'null') return null;
+    if (v == 'internal' || v == 'external') return v;
+    return null;
   }
 }
 

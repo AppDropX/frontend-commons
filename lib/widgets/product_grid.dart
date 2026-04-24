@@ -52,7 +52,7 @@ Widget _buildProductGridTile({
   required double radiusDp,
   required bool horizontalRow,
 }) {
-  final addToCartTextColor = addToCartIsOutlined ? addToCartCtaColor : addToCartCtaFontColor;
+  final addToCartTextColor = addToCartCtaFontColor;
 
   final Map<String, dynamic>? gridAction = () {
     final a = item['action'];
@@ -103,9 +103,13 @@ Widget _buildProductGridTile({
       clipBehavior: Clip.antiAlias,
       child: Ink(
         decoration: BoxDecoration(
-          color: addToCartIsOutlined ? Colors.transparent : addToCartCtaColor,
+          color: addToCartIsOutlined
+              ? Colors.transparent
+              : addToCartCtaColor,
           borderRadius: BorderRadius.circular(atcRadius),
-          border: addToCartIsOutlined ? Border.all(color: addToCartCtaColor, width: 1.5) : null,
+          border: addToCartIsOutlined
+              ? Border.all(color: addToCartCtaColor, width: 1.5)
+              : null,
           boxShadow: addToCartIsOutlined
               ? null
               : [
@@ -178,9 +182,13 @@ Widget _buildProductGridTile({
         onTap: () => env.dispatchAction(context, addPayload),
         child: Ink(
           decoration: BoxDecoration(
-            color: addToCartIsOutlined ? Colors.transparent : addToCartCtaColor,
+            color: addToCartIsOutlined
+                ? Colors.transparent
+                : addToCartCtaColor,
             borderRadius: BorderRadius.circular(atcRadius),
-            border: addToCartIsOutlined ? Border.all(color: addToCartCtaColor, width: 1.5) : null,
+            border: addToCartIsOutlined
+                ? Border.all(color: addToCartCtaColor, width: 1.5)
+                : null,
             boxShadow: addToCartIsOutlined
                 ? null
                 : [
@@ -255,14 +263,8 @@ Widget buildProductGrid(BuildContext context, WidgetNode node, AppDropBuildEnv e
   final spacingDp = node.d('spacingDp', def: 12);
   final collectionHeading = _gridCollectionHeading(node);
   final showCollectionHeading = node.b('showCollectionHeading', def: true);
-  final showAddToCart = node.b('showAddToCart', def: false);
   final addToCartTitle = _addToCartTitle(node);
-  final addToCartButtonStyle = node.s('addToCartButtonStyle', def: 'filled').toLowerCase();
-  final addToCartIsOutlined = addToCartButtonStyle == 'outlined';
-  final addToCartShape = node.s('addToCartStyle', def: 'rounded').toLowerCase();
   final addToCartTitleSize = node.d('addToCartTitleSize', def: 16);
-  final addToCartCtaColor = parseHexColor(node.s('addToCartCtaColor', def: '#FF6A00')) ?? const Color(0xFFFF6A00);
-  final addToCartCtaFontColor = parseHexColor(node.s('addToCartCtaFontColor', def: '#FFFFFF')) ?? const Color(0xFFFFFFFF);
 
   final showGridTitle = node.b('showGridTitle', def: false);
   final showViewAllButton = node.b('showViewAllButton', def: false);
@@ -289,9 +291,32 @@ Widget buildProductGrid(BuildContext context, WidgetNode node, AppDropBuildEnv e
       final spacing = env.r.dp(spacingDp);
       final maxTileW = env.r.dp(maxTileDp);
       final width = constraints.maxWidth;
+      if (width <= 0) {
+        // Avoid layout exceptions/log spam in the first unconstrained pass.
+        return const SizedBox.shrink();
+      }
 
       final scope = AppDropThemeScope.maybeOf(ctx);
       final pb = scope?.productBlock ?? const <String, dynamic>{};
+      final showAddToCart = _b(pb, 'add_to_cart', node.b('showAddToCart', def: false));
+      final buttonStyleRaw = (pb['button_style'] ?? '').toString().toLowerCase().trim();
+      final buttonParts = buttonStyleRaw
+          .split(RegExp(r'[_\-\s]+'))
+          .where((e) => e.isNotEmpty)
+          .toList();
+      final addToCartShape = buttonParts.isNotEmpty ? buttonParts.first : 'rounded';
+      final addToCartType = buttonParts.length > 1 ? buttonParts[1] : 'filled';
+      final addToCartIsOutlined = addToCartType == 'outlined';
+      final addToCartCtaColor = addToCartIsOutlined
+          ? (parseHexColor((pb['outlined_button_bg'] ?? '#FF6A00').toString()) ??
+              const Color(0xFFFF6A00))
+          : (parseHexColor((pb['filled_button_bg'] ?? '#FF6A00').toString()) ??
+              const Color(0xFFFF6A00));
+      final addToCartCtaFontColor = addToCartIsOutlined
+          ? (parseHexColor((pb['outlined_button_color'] ?? '#FF6A00').toString()) ??
+              const Color(0xFFFF6A00))
+          : (parseHexColor((pb['filled_button_color'] ?? '#FFFFFF').toString()) ??
+              const Color(0xFFFFFFFF));
 
       final padDp = _d(pb, 'card_padding', 12);
       final radiusDp = _d(pb, 'corner_radius', 12);
@@ -558,6 +583,7 @@ double _addToCartRadiusFromStyle(String style, R r) {
   switch (style) {
     case 'sharp':
       return 0;
+    case 'blunt':
     case 'pill':
       return r.dp(999);
     case 'rounded':

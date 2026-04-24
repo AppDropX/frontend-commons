@@ -42,6 +42,7 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final showRatingCount = b('show_rating_count', true);
   final showVendor = b('show_vendor', true);
   final showSwatches = b('show_swatches', true);
+  final showAddToCart = b('add_to_cart', true);
 
   final priceFont = s('price_font', 'Regular').toLowerCase(); // Bold
   final discountSize = s('discount_size', 'Small').toLowerCase();
@@ -62,6 +63,16 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final ratingColor = parseHexColor(s('rating_color', '#FFA500')) ?? Colors.orange;
   final ratingFontColor = parseHexColor(s('rating_font_color', '#000000')) ?? Colors.black;
   final titleColor = parseHexColor(s('title_color', '#000000')) ?? Colors.black;
+  final filledButtonBg = parseHexColor(s('filled_button_bg', '#B63E3E')) ?? const Color(0xFFB63E3E);
+  final filledButtonColor = parseHexColor(s('filled_button_color', '#FFFFFF')) ?? Colors.white;
+  final outlinedButtonBg = parseHexColor(s('outlined_button_bg', '#FFFFFF')) ?? Colors.white;
+  final outlinedButtonColor = parseHexColor(s('outlined_button_color', '#B63E3E')) ?? const Color(0xFFB63E3E);
+  final wishlistColor =
+      parseHexColor(s('product_wishlist_color', '#E53935')) ?? const Color(0xFFE53935);
+  final buttonStyleRaw = s('button_style', 'sharp_filled').toLowerCase();
+  final buttonStyleParts = buttonStyleRaw.split(RegExp(r'[_\-\s]+'));
+  final buttonShape = buttonStyleParts.isNotEmpty ? buttonStyleParts.first : 'sharp';
+  final buttonType = buttonStyleParts.length > 1 ? buttonStyleParts[1] : 'filled';
 
   final product = node.m('product') ?? <String, dynamic>{};
   final title = (product['title'] ?? '').toString();
@@ -98,17 +109,32 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
     borderRadius: imageRadius,
     child: AspectRatio(
       aspectRatio: aspect,
-      child: Container(
-        color: imageBg,
-        child: imageUrl == null
-            ? const SizedBox.expand()
-            : Image.network(
-                imageUrl,
-                fit: boxFit, //  crop/fit toggle works
-                alignment: Alignment.center,
-                errorBuilder: (_, __, ___) =>
-                    ColoredBox(color: imageBg, child: const SizedBox.expand()),
-              ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              color: imageBg,
+              child: imageUrl == null
+                  ? const SizedBox.expand()
+                  : Image.network(
+                      imageUrl,
+                      fit: boxFit, // crop/fit toggle works
+                      alignment: Alignment.center,
+                      errorBuilder: (_, __, ___) =>
+                          ColoredBox(color: imageBg, child: const SizedBox.expand()),
+                    ),
+            ),
+          ),
+          Positioned(
+            right: env.r.dp(8),
+            top: env.r.dp(8),
+            child: Icon(
+              Icons.favorite_border,
+              color: wishlistColor,
+              size: env.r.dp(18),
+            ),
+          ),
+        ],
       ),
     ),
   );
@@ -221,9 +247,50 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
     ),
   );
 
+  final addToCartRadius = _addToCartRadius(buttonShape, env.r);
+  final isOutlined = buttonType == 'outlined';
+  final addToCartBg = isOutlined ? Colors.transparent : filledButtonBg;
+  final addToCartFg = isOutlined ? outlinedButtonColor : filledButtonColor;
+
+  final addToCartButton = Padding(
+    padding: EdgeInsets.fromLTRB(env.r.dp(8), 0, env.r.dp(8), env.r.dp(10)),
+    child: Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(addToCartRadius),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(addToCartRadius),
+        onTap: action == null ? null : () => env.dispatchAction(context, action),
+        child: Ink(
+          height: env.r.dp(36),
+          decoration: BoxDecoration(
+            color: addToCartBg,
+            borderRadius: BorderRadius.circular(addToCartRadius),
+            border: isOutlined
+                ? Border.all(color: outlinedButtonBg, width: 1.2)
+                : Border.all(color: filledButtonBg, width: 1),
+          ),
+          child: Center(
+            child: Text(
+              'Add to Cart',
+              style: TextStyle(
+                color: addToCartFg,
+                fontSize: env.r.sp(13, min: 11, max: 15),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
   final body = Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [image, meta],
+    children: [
+      image,
+      meta,
+      if (showAddToCart && !embedInGrid) addToCartButton,
+    ],
   );
 
   if (embedInGrid) {
@@ -304,4 +371,18 @@ int _toInt(dynamic v) {
   if (v is num) return v.toInt();
   if (v is String) return int.tryParse(v) ?? 0;
   return 0;
+}
+
+double _addToCartRadius(String style, dynamic r) {
+  switch (style) {
+    case 'rounded':
+      return r.dp(12);
+    case 'blunt':
+    case 'pill':
+      return r.dp(999);
+    case 'corner':
+    case 'sharp':
+    default:
+      return 0;
+  }
 }

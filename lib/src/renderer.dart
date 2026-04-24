@@ -31,6 +31,10 @@ class AppDropRenderer extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, c) {
+        if (c.maxWidth <= 0 || c.maxHeight <= 0) {
+          // Parent has not been laid out yet; skip this build pass.
+          return const SizedBox.shrink();
+        }
         final rr = R.fromConstraints(context, c, baseWidth: baseWidth);
 
         Widget renderNode(BuildContext ctx, WidgetNode node) {

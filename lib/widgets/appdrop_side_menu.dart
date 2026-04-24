@@ -4,7 +4,7 @@ import '../theme/appdrop_theme_config.dart';
 class AppDropSideMenu extends StatelessWidget {
   final AppStylingConfig styling;
   final SideMenuConfig config;
-  final ValueChanged<String>? onItemTap;
+  final ValueChanged<SideMenuItemEntry>? onItemTap;
 
   const AppDropSideMenu({
     super.key,
@@ -26,10 +26,10 @@ class AppDropSideMenu extends StatelessWidget {
               ? Divider(height: 1, color: dividerColor)
               : const SizedBox.shrink(),
           itemBuilder: (_, i) {
-            final title = config.menuItems[i];
+            final item = config.menuItems[i];
             return ListTile(
               title: Text(
-                title,
+                item.title,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: styling.sideNavFontColor,
@@ -37,7 +37,7 @@ class AppDropSideMenu extends StatelessWidget {
               ),
               onTap: () {
                 Navigator.pop(context);
-                onItemTap?.call(title);
+                onItemTap?.call(item);
               },
             );
           },

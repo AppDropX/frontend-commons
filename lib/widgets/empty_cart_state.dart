@@ -7,6 +7,7 @@ import '../utils/color.dart';
 Widget buildEmptyCartState(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   final r = env.r;
   final message = node.s('message', def: 'Cart is empty');
+  final emptyVariant = node.s('emptyStateVariant', def: 'cart').toLowerCase();
   final iconDp = node.d('iconSizeDp', def: 72).clamp(40, 120);
   final iconHex = node.s('iconColor', def: '');
   final iconColor = iconHex.isNotEmpty
@@ -30,7 +31,7 @@ Widget buildEmptyCartState(BuildContext context, WidgetNode node, AppDropBuildEn
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(
-              Icons.shopping_cart_outlined,
+              emptyVariant == 'wishlist' ? Icons.favorite_border : Icons.shopping_cart_outlined,
               size: r.dp(iconDp),
               color: iconColor,
             ),
