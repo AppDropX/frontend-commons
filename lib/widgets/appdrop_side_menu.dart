@@ -17,6 +17,7 @@ class AppDropSideMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final dividerColor = styling.sideNavFontColor.withValues(alpha: 0.2);
     return Drawer(
+      width: 280,
       backgroundColor: styling.sideNavBg,
       child: SafeArea(
         child: ListView.separated(

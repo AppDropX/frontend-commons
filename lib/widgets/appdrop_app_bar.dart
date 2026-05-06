@@ -213,6 +213,8 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
     final actions = _actions();
     return AppBar(
       elevation: 0,
+      shadowColor: Colors.transparent,
+      scrolledUnderElevation: 0,
       toolbarHeight: _h,
       surfaceTintColor: styling.toolbarBg,
       backgroundColor: styling.toolbarBg,

@@ -48,6 +48,8 @@ class AppDropScaffold extends StatefulWidget {
   final VoidCallback? onWishlistTap;
   final VoidCallback? onSearchTap;
   final VoidCallback? onBack;
+  final GlobalKey<ScaffoldState>? scaffoldKey;
+  final Widget? bodyOverride;
 
   const AppDropScaffold({
     super.key,
@@ -70,6 +72,8 @@ class AppDropScaffold extends StatefulWidget {
     this.onWishlistTap,
     this.onSearchTap,
     this.onBack,
+    this.scaffoldKey,
+    this.bodyOverride,
   });
 
   @override
@@ -150,6 +154,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
       child: Theme(
         data: theme,
         child: Scaffold(
+          key: widget.scaffoldKey,
           drawer: hasDrawer
               ? AppDropSideMenu(
             styling: cfg.appStyling,
@@ -187,27 +192,31 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
           body: Column(
             children: [
               if (widget.showTopTabs && topItems.isNotEmpty)
-                AppDropTopTabs(
-                  styling: cfg.appStyling,
-                  config: cfg.topNavigation,
-                  selectedIndex: safeTopTabIndex,
-                  onChanged: (i) {
-                    setState(() => tabIndex = i);
-                    widget.onTabChanged?.call(i, cfg.topNavigation.items[i]);
-                  },
-                ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: AppDropRenderer(
-                    nodes: inlineNodes,
-                    registry: registry,
-                    onAction: onAction,
-                    cartQuantityForProduct: widget.cartQuantityForProduct,
+                Transform.translate(
+                  offset: const Offset(0, -1),
+                  child: AppDropTopTabs(
+                    styling: cfg.appStyling,
+                    config: cfg.topNavigation,
+                    selectedIndex: safeTopTabIndex,
+                    onChanged: (i) {
+                      setState(() => tabIndex = i);
+                      widget.onTabChanged?.call(i, cfg.topNavigation.items[i]);
+                    },
                   ),
                 ),
+              Expanded(
+                child: widget.bodyOverride ??
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: AppDropRenderer(
+                        nodes: inlineNodes,
+                        registry: registry,
+                        onAction: onAction,
+                        cartQuantityForProduct: widget.cartQuantityForProduct,
+                      ),
+                    ),
               ),
-              if (fixedBottomNodes.isNotEmpty)
+              if (widget.bodyOverride == null && fixedBottomNodes.isNotEmpty)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
