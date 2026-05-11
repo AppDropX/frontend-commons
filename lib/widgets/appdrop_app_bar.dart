@@ -10,15 +10,18 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showMenu;
   final bool showCart;
   final VoidCallback? onCartTap;
+
   /// Total units in cart; shown as a badge on the cart icon when > 0.
   final int? cartBadgeCount;
 
   /// When set, drives leading, title, and actions (PLP / Home / custom toolbars).
   final PageToolbarConfig? pageToolbar;
+
   /// Whether a drawer is available (required for side-navigation leading control).
   final bool hasDrawer;
   final VoidCallback? onBack;
   final VoidCallback? onWishlistTap;
+  final bool wishlistSelected;
   final VoidCallback? onSearchTap;
 
   const AppDropAppBar({
@@ -34,6 +37,7 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.hasDrawer = false,
     this.onBack,
     this.onWishlistTap,
+    this.wishlistSelected = false,
     this.onSearchTap,
   });
 
@@ -55,7 +59,8 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
           );
         case ToolbarLeft.back:
           return IconButton(
-            icon: Icon(iconFromName('back'), color: styling.toolbarFont, size: 20),
+            icon: Icon(iconFromName('back'),
+                color: styling.toolbarFont, size: 20),
             onPressed: onBack ?? () => Navigator.maybePop(context),
           );
         case ToolbarLeft.none:
@@ -80,23 +85,28 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
       if (pt.center == ToolbarCenter.text) {
         return Text(
           pt.centerText.isEmpty ? title : pt.centerText,
-          style: TextStyle(color: styling.toolbarFont, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: styling.toolbarFont, fontWeight: FontWeight.w600),
         );
       }
       if (pt.center == ToolbarCenter.logo) {
         return Text(
           title,
-          style: TextStyle(color: styling.toolbarFont, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: styling.toolbarFont, fontWeight: FontWeight.w600),
         );
       }
       if (pt.center == ToolbarCenter.collectionSearch) {
         return Text(
           'Collection',
-          style: TextStyle(color: styling.toolbarFont, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: styling.toolbarFont, fontWeight: FontWeight.w600),
         );
       }
     }
-    return Text(title, style: TextStyle(color: styling.toolbarFont, fontWeight: FontWeight.w600));
+    return Text(title,
+        style:
+            TextStyle(color: styling.toolbarFont, fontWeight: FontWeight.w600));
   }
 
   Widget? _slotAction(String slot) {
@@ -109,18 +119,21 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              Icon(iconFromName('shopping_cart_outlined'), color: styling.toolbarFont),
+              Icon(iconFromName('shopping_cart_outlined'),
+                  color: styling.toolbarFont),
               if (cartBadgeCount != null && cartBadgeCount! > 0)
                 Positioned(
                   right: -6,
                   top: -4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: const BoxDecoration(
                       color: Color(0xFFE53935),
                       shape: BoxShape.circle,
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints:
+                        const BoxConstraints(minWidth: 18, minHeight: 18),
                     alignment: Alignment.center,
                     child: Text(
                       cartBadgeCount! > 99 ? '99+' : '${cartBadgeCount!}',
@@ -139,7 +152,10 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
         );
       case ToolbarRight.wishlist:
         return IconButton(
-          icon: Icon(iconFromName('favorite_border'), color: styling.toolbarFont),
+          icon: Icon(
+            wishlistSelected ? Icons.favorite : iconFromName('favorite_border'),
+            color: styling.toolbarFont,
+          ),
           onPressed: onWishlistTap,
         );
       case ToolbarRight.search:
@@ -172,18 +188,21 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              Icon(iconFromName('shopping_cart_outlined'), color: styling.toolbarFont),
+              Icon(iconFromName('shopping_cart_outlined'),
+                  color: styling.toolbarFont),
               if (cartBadgeCount != null && cartBadgeCount! > 0)
                 Positioned(
                   right: -6,
                   top: -4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: const BoxDecoration(
                       color: Color(0xFFE53935),
                       shape: BoxShape.circle,
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints:
+                        const BoxConstraints(minWidth: 18, minHeight: 18),
                     alignment: Alignment.center,
                     child: Text(
                       cartBadgeCount! > 99 ? '99+' : '${cartBadgeCount!}',

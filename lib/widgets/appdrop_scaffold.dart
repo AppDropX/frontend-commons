@@ -39,6 +39,9 @@ class AppDropScaffold extends StatefulWidget {
   /// PLP product grid: per-product quantity in cart for stepper UI.
   final CartQuantityResolver? cartQuantityForProduct;
 
+  /// Product-card wishlist state, used to render filled heart icons.
+  final WishlistContainsResolver? wishlistContainsProduct;
+
   /// Total units in cart; badge on app bar cart icon when > 0.
   final int? cartBadgeCount;
 
@@ -46,10 +49,17 @@ class AppDropScaffold extends StatefulWidget {
   final PageToolbarConfig? pageToolbar;
 
   final VoidCallback? onWishlistTap;
+  final bool wishlistSelected;
   final VoidCallback? onSearchTap;
   final VoidCallback? onBack;
   final GlobalKey<ScaffoldState>? scaffoldKey;
   final Widget? bodyOverride;
+
+  /// Optional widget registry. When provided, replaces [WidgetRegistry.defaults] so
+  /// host apps (e.g. `pilot`) can register additional block builders such as
+  /// `custom_block` (HTML/CSS/JS via webview) without forcing the dependency on
+  /// `frontend_commons`.
+  final WidgetRegistry? registry;
 
   const AppDropScaffold({
     super.key,
@@ -67,13 +77,16 @@ class AppDropScaffold extends StatefulWidget {
     this.showTopTabs = true,
     this.showBottomNav = true,
     this.cartQuantityForProduct,
+    this.wishlistContainsProduct,
     this.cartBadgeCount,
     this.pageToolbar,
     this.onWishlistTap,
+    this.wishlistSelected = false,
     this.onSearchTap,
     this.onBack,
     this.scaffoldKey,
     this.bodyOverride,
+    this.registry,
   });
 
   @override
@@ -103,7 +116,8 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
   }
 
   /// Splits pageJson into inline blocks and CTA blocks with scrollStyle "fixed_at_bottom".
-  static void _splitPageJson(List<dynamic> pageJson, List<dynamic> inlineOut, List<dynamic> fixedBottomOut) {
+  static void _splitPageJson(List<dynamic> pageJson, List<dynamic> inlineOut,
+      List<dynamic> fixedBottomOut) {
     for (final item in pageJson) {
       final map = item is Map ? item as Map<String, dynamic> : null;
       if (map == null) {
@@ -111,7 +125,8 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
         continue;
       }
       final type = (map['type'] ?? '').toString();
-      final scrollStyle = (map['scrollStyle'] ?? 'inline').toString().toLowerCase();
+      final scrollStyle =
+          (map['scrollStyle'] ?? 'inline').toString().toLowerCase();
       if (type == 'cta_button' && scrollStyle == 'fixed_at_bottom') {
         fixedBottomOut.add(Map<String, dynamic>.from(map));
       } else {
@@ -124,9 +139,8 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
   Widget build(BuildContext context) {
     final cfg = AppDropThemeConfig.fromJson(widget.themeJson);
     final topItems = cfg.topNavigation.items;
-    final safeTopTabIndex = topItems.isEmpty
-        ? 0
-        : tabIndex.clamp(0, topItems.length - 1);
+    final safeTopTabIndex =
+        topItems.isEmpty ? 0 : tabIndex.clamp(0, topItems.length - 1);
     final inlineJson = <dynamic>[];
     final fixedBottomJson = <dynamic>[];
     _splitPageJson(widget.pageJson, inlineJson, fixedBottomJson);
@@ -140,10 +154,9 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
     final bottomItems = cfg.bottomBar.items.where((e) => e.enabled).toList();
     final theme = AppDropThemeData.buildFromConfig(cfg); // ✅ add this
 
-
     if (bottomIndex >= bottomItems.length) bottomIndex = 0;
 
-    final registry = WidgetRegistry.defaults();
+    final registry = widget.registry ?? WidgetRegistry.defaults();
     final onAction = widget.onAction != null
         ? (dynamic ctx, Map<String, dynamic> action) =>
             widget.onAction!.call(ctx as BuildContext, action)
@@ -157,10 +170,10 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
           key: widget.scaffoldKey,
           drawer: hasDrawer
               ? AppDropSideMenu(
-            styling: cfg.appStyling,
-            config: cfg.sideMenu,
-            onItemTap: (item) => widget.onMenuItemTap?.call(item),
-          )
+                  styling: cfg.appStyling,
+                  config: cfg.sideMenu,
+                  onItemTap: (item) => widget.onMenuItemTap?.call(item),
+                )
               : null,
           appBar: AppDropAppBar(
             toolbarHeight: widget.appbarHeight,
@@ -174,6 +187,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
             hasDrawer: hasDrawer,
             onBack: widget.onBack,
             onWishlistTap: widget.onWishlistTap,
+            wishlistSelected: widget.wishlistSelected,
             onSearchTap: widget.onSearchTap,
           ),
           bottomNavigationBar: widget.showBottomNav
@@ -181,6 +195,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                   styling: cfg.appStyling,
                   config: cfg.bottomBar,
                   currentIndex: bottomIndex,
+                  cartBadgeCount: widget.cartBadgeCount,
                   onTap: (i) {
                     setState(() => bottomIndex = i);
                     if (i < bottomItems.length) {
@@ -213,6 +228,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                         registry: registry,
                         onAction: onAction,
                         cartQuantityForProduct: widget.cartQuantityForProduct,
+                        wishlistContainsProduct: widget.wishlistContainsProduct,
                       ),
                     ),
               ),
@@ -237,6 +253,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                       registry: registry,
                       onAction: onAction,
                       cartQuantityForProduct: widget.cartQuantityForProduct,
+                      wishlistContainsProduct: widget.wishlistContainsProduct,
                     ),
                   ),
                 ),

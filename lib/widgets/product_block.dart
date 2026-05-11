@@ -3,7 +3,8 @@ import '../theme_library.dart';
 import '../utils/color.dart';
 import '../utils/network_image_url.dart';
 
-Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
+Widget buildProductBlock(
+    BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   final cfg = AppDropThemeScope.maybeOf(context);
 
   // Merge: theme.productBlock (defaults) <- node.props (override)
@@ -57,27 +58,43 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final maxLines = i('max_lines', 2);
   final padDp = d('card_padding', 12);
 
-  final imageBg = parseHexColor(s('image_bg_color', '#E0E0E0')) ?? const Color(0xFFE0E0E0);
+  final imageBg =
+      parseHexColor(s('image_bg_color', '#E0E0E0')) ?? const Color(0xFFE0E0E0);
   final priceColor = parseHexColor(s('price_color', '#000000')) ?? Colors.black;
-  final discountColor = parseHexColor(s('discount_color', '#FF0000')) ?? Colors.red;
-  final ratingColor = parseHexColor(s('rating_color', '#FFA500')) ?? Colors.orange;
-  final ratingFontColor = parseHexColor(s('rating_font_color', '#000000')) ?? Colors.black;
+  final discountColor =
+      parseHexColor(s('discount_color', '#FF0000')) ?? Colors.red;
+  final ratingColor =
+      parseHexColor(s('rating_color', '#FFA500')) ?? Colors.orange;
+  final ratingFontColor =
+      parseHexColor(s('rating_font_color', '#000000')) ?? Colors.black;
   final titleColor = parseHexColor(s('title_color', '#000000')) ?? Colors.black;
-  final filledButtonBg = parseHexColor(s('filled_button_bg', '#B63E3E')) ?? const Color(0xFFB63E3E);
-  final filledButtonColor = parseHexColor(s('filled_button_color', '#FFFFFF')) ?? Colors.white;
-  final outlinedButtonBg = parseHexColor(s('outlined_button_bg', '#FFFFFF')) ?? Colors.white;
-  final outlinedButtonColor = parseHexColor(s('outlined_button_color', '#B63E3E')) ?? const Color(0xFFB63E3E);
-  final wishlistColor =
-      parseHexColor(s('product_wishlist_color', '#E53935')) ?? const Color(0xFFE53935);
+  final filledButtonBg = parseHexColor(s('filled_button_bg', '#B63E3E')) ??
+      const Color(0xFFB63E3E);
+  final filledButtonColor =
+      parseHexColor(s('filled_button_color', '#FFFFFF')) ?? Colors.white;
+  final outlinedButtonBg =
+      parseHexColor(s('outlined_button_bg', '#FFFFFF')) ?? Colors.white;
+  final outlinedButtonColor =
+      parseHexColor(s('outlined_button_color', '#B63E3E')) ??
+          const Color(0xFFB63E3E);
+  final wishlistColor = parseHexColor(s('product_wishlist_color', '#E53935')) ??
+      const Color(0xFFE53935);
   final buttonStyleRaw = s('button_style', 'sharp_filled').toLowerCase();
   final buttonStyleParts = buttonStyleRaw.split(RegExp(r'[_\-\s]+'));
-  final buttonShape = buttonStyleParts.isNotEmpty ? buttonStyleParts.first : 'sharp';
-  final buttonType = buttonStyleParts.length > 1 ? buttonStyleParts[1] : 'filled';
+  final buttonShape =
+      buttonStyleParts.isNotEmpty ? buttonStyleParts.first : 'sharp';
+  final buttonType =
+      buttonStyleParts.length > 1 ? buttonStyleParts[1] : 'filled';
 
   final product = node.m('product') ?? <String, dynamic>{};
+  final productId = (product['productId'] ?? product['id'])?.toString() ?? '';
+  final inWishlist = productId.isNotEmpty
+      ? env.wishlistContainsProduct?.call(productId) ?? b('inWishlist', false)
+      : b('inWishlist', false);
   final title = (product['title'] ?? '').toString();
   final vendor = (product['vendor'] ?? '').toString();
-  final imageUrl = sanitizedNetworkImageUrl((product['imageUrl'] ?? '').toString());
+  final imageUrl =
+      sanitizedNetworkImageUrl((product['imageUrl'] ?? '').toString());
 
   final sellingPrice = _toDouble(product['sellingPrice']);
   final retailPrice = _toDouble(product['retailPrice']);
@@ -86,14 +103,20 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final rating = _toDouble(product['rating']);
   final ratingCount = _toInt(product['ratingCount']);
 
-  final swatchesRaw = (product['swatches'] is List) ? (product['swatches'] as List) : const [];
-  final swatches = swatchesRaw.map((e) => parseHexColor(e.toString())).whereType<Color>().toList();
+  final swatchesRaw =
+      (product['swatches'] is List) ? (product['swatches'] as List) : const [];
+  final swatches = swatchesRaw
+      .map((e) => parseHexColor(e.toString()))
+      .whereType<Color>()
+      .toList();
 
   final action = node.m('action');
+  final wishlistAction = node.m('wishlistAction');
 
   final aspect = _aspectFromIndex(aspectIdx);
   final align = _alignFromIndex(titleAlignIdx);
-  final titleMaxLines = (titleBehaviorIdx == 1) ? 1 : (maxLines <= 0 ? null : maxLines);
+  final titleMaxLines =
+      (titleBehaviorIdx == 1) ? 1 : (maxLines <= 0 ? null : maxLines);
   final priceWeight = priceFont == 'bold' ? FontWeight.w700 : FontWeight.w400;
   final discountSp = _discountSp(discountSize, env.r);
 
@@ -120,18 +143,31 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
                       imageUrl,
                       fit: boxFit, // crop/fit toggle works
                       alignment: Alignment.center,
-                      errorBuilder: (_, __, ___) =>
-                          ColoredBox(color: imageBg, child: const SizedBox.expand()),
+                      errorBuilder: (_, __, ___) => ColoredBox(
+                          color: imageBg, child: const SizedBox.expand()),
                     ),
             ),
           ),
           Positioned(
             right: env.r.dp(8),
             top: env.r.dp(8),
-            child: Icon(
-              Icons.favorite_border,
-              color: wishlistColor,
-              size: env.r.dp(18),
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.86),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: wishlistAction == null
+                    ? null
+                    : () => env.dispatchAction(context, wishlistAction),
+                child: Padding(
+                  padding: EdgeInsets.all(env.r.dp(6)),
+                  child: Icon(
+                    inWishlist ? Icons.favorite : Icons.favorite_border,
+                    color: wishlistColor,
+                    size: env.r.dp(18),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -153,10 +189,11 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: align,
-              style: TextStyle(fontSize: env.r.sp(12, min: 10, max: 14), color: Colors.black54),
+              style: TextStyle(
+                  fontSize: env.r.sp(12, min: 10, max: 14),
+                  color: Colors.black54),
             ),
           ),
-
         Text(
           title,
           maxLines: titleMaxLines,
@@ -168,9 +205,7 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
             color: titleColor,
           ),
         ),
-
         SizedBox(height: env.r.dp(10)),
-
         if (showRating && rating > 0)
           Padding(
             padding: EdgeInsets.only(bottom: env.r.dp(10)),
@@ -200,14 +235,15 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
               ],
             ),
           ),
-
         Row(
           mainAxisAlignment: _main(align),
           children: [
             if (showSelling && sellingPrice > 0)
               Text('₹${sellingPrice.toStringAsFixed(0)}',
-                  style: TextStyle(fontSize: env.r.sp(14), fontWeight: priceWeight, color: priceColor)),
-
+                  style: TextStyle(
+                      fontSize: env.r.sp(14),
+                      fontWeight: priceWeight,
+                      color: priceColor)),
             if (showRetail && retailPrice > 0) ...[
               SizedBox(width: env.r.dp(8)),
               Text(
@@ -215,19 +251,22 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
                 style: TextStyle(
                   fontSize: env.r.sp(12),
                   color: Colors.black54,
-                  decoration: showStrike ? TextDecoration.lineThrough : TextDecoration.none,
+                  decoration: showStrike
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
                 ),
               ),
             ],
-
             if (showDiscount && discountPercent > 0) ...[
               SizedBox(width: env.r.dp(5)),
               Text('$discountPercent% OFF',
-                  style: TextStyle(fontSize: discountSp, fontWeight: FontWeight.w700, color: discountColor)),
+                  style: TextStyle(
+                      fontSize: discountSp,
+                      fontWeight: FontWeight.w700,
+                      color: discountColor)),
             ],
           ],
         ),
-
         if (showSwatches && swatches.isNotEmpty) ...[
           SizedBox(height: env.r.dp(12)),
           Row(
@@ -237,12 +276,14 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
                 width: env.r.dp(14),
                 height: env.r.dp(14),
                 margin: EdgeInsets.only(right: env.r.dp(6)),
-                decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: Border.all(color: Colors.black12)),
+                decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black12)),
               );
             }).toList(),
           ),
         ],
-
       ],
     ),
   );
@@ -259,7 +300,8 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
       borderRadius: BorderRadius.circular(addToCartRadius),
       child: InkWell(
         borderRadius: BorderRadius.circular(addToCartRadius),
-        onTap: action == null ? null : () => env.dispatchAction(context, action),
+        onTap:
+            action == null ? null : () => env.dispatchAction(context, action),
         child: Ink(
           height: env.r.dp(36),
           decoration: BoxDecoration(
@@ -296,7 +338,8 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   if (embedInGrid) {
     Widget inner = body;
     if (action != null) {
-      inner = InkWell(onTap: () => env.dispatchAction(context, action), child: inner);
+      inner = InkWell(
+          onTap: () => env.dispatchAction(context, action), child: inner);
     }
     return inner;
   }
@@ -304,13 +347,15 @@ Widget buildProductBlock(BuildContext context, WidgetNode node, AppDropBuildEnv 
   Widget card = ClipRRect(
     borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
     child: DecoratedBox(
-      decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.black12)),
+      decoration: BoxDecoration(
+          color: Colors.white, border: Border.all(color: Colors.black12)),
       child: body,
     ),
   );
 
   if (action != null) {
-    card = InkWell(onTap: () => env.dispatchAction(context, action), child: card);
+    card =
+        InkWell(onTap: () => env.dispatchAction(context, action), child: card);
   }
   return card;
 }
@@ -330,7 +375,6 @@ double _aspectFromIndex(int idx) {
   }
 }
 
-
 TextAlign _alignFromIndex(int idx) {
   switch (idx) {
     case 1:
@@ -345,14 +389,14 @@ TextAlign _alignFromIndex(int idx) {
 CrossAxisAlignment _cross(TextAlign a) => a == TextAlign.center
     ? CrossAxisAlignment.center
     : a == TextAlign.right
-    ? CrossAxisAlignment.end
-    : CrossAxisAlignment.start;
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start;
 
 MainAxisAlignment _main(TextAlign a) => a == TextAlign.center
     ? MainAxisAlignment.center
     : a == TextAlign.right
-    ? MainAxisAlignment.end
-    : MainAxisAlignment.start;
+        ? MainAxisAlignment.end
+        : MainAxisAlignment.start;
 
 double _discountSp(String size, dynamic r) {
   if (size == 'large') return r.sp(14, min: 12, max: 16);

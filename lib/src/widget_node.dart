@@ -24,7 +24,8 @@ class WidgetNode {
         ..remove('id')
         ..remove('children');
     }
-    final kids = (map['children'] is List) ? (map['children'] as List) : const [];
+    final kids =
+        (map['children'] is List) ? (map['children'] as List) : const [];
     return WidgetNode(
       type: type,
       props: props,
@@ -76,23 +77,30 @@ class WidgetNode {
   }
 }
 
-typedef AppDropActionHandler = void Function(dynamic ctx, Map<String, dynamic> action);
+typedef AppDropActionHandler = void Function(
+    dynamic ctx, Map<String, dynamic> action);
 
 /// Returns how many units of [productId] are in the cart (0 if none). Used by PLP product grid.
 typedef CartQuantityResolver = int Function(String productId);
+
+/// Returns whether [productId] is currently saved in wishlist.
+typedef WishlistContainsResolver = bool Function(String productId);
 
 class AppDropBuildEnv {
   final R r;
   final dynamic Function(dynamic ctx, WidgetNode node) renderNode;
   final AppDropActionHandler? onAction;
+
   /// When set, product grid can show quantity stepper instead of only "Add to cart".
   final CartQuantityResolver? cartQuantityForProduct;
+  final WishlistContainsResolver? wishlistContainsProduct;
 
   AppDropBuildEnv({
     required this.r,
     required this.renderNode,
     this.onAction,
     this.cartQuantityForProduct,
+    this.wishlistContainsProduct,
   });
 
   void dispatchAction(dynamic ctx, Map<String, dynamic> action) {

@@ -11,9 +11,11 @@ class AppDropRenderer extends StatelessWidget {
   final WidgetRegistry? registry;
   final double baseWidth;
   final AppDropActionHandler? onAction;
+
   /// Vertical space between each block. Default is [kDefaultBlockSpacing].
   final double blockSpacing;
   final CartQuantityResolver? cartQuantityForProduct;
+  final WishlistContainsResolver? wishlistContainsProduct;
 
   const AppDropRenderer({
     super.key,
@@ -23,6 +25,7 @@ class AppDropRenderer extends StatelessWidget {
     this.onAction,
     this.blockSpacing = kDefaultBlockSpacing,
     this.cartQuantityForProduct,
+    this.wishlistContainsProduct,
   });
 
   @override
@@ -44,6 +47,7 @@ class AppDropRenderer extends StatelessWidget {
             renderNode: (ctx2, n2) => renderNode(ctx2 as BuildContext, n2),
             onAction: onAction,
             cartQuantityForProduct: cartQuantityForProduct,
+            wishlistContainsProduct: wishlistContainsProduct,
           );
           if (builder == null) return const SizedBox.shrink();
           return builder(ctx, node, env);

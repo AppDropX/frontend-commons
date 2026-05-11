@@ -93,6 +93,9 @@ void showAppDropSnackBar(
   bool isError = false,
   Duration duration = const Duration(seconds: 3),
   bool clearExisting = true,
+  Color? backgroundColor,
+  Color? foregroundColor,
+  IconData? icon,
 }) {
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
@@ -115,6 +118,9 @@ void showAppDropSnackBar(
 
   final resolved = isError ? AppDropSnackKind.error : kind;
   final s = _styleForKind(resolved, colorScheme);
+  final bg = backgroundColor ?? s.background;
+  final fg = foregroundColor ?? s.foreground;
+  final snackIcon = icon ?? s.icon;
 
   messenger.showSnackBar(
     SnackBar(
@@ -127,24 +133,29 @@ void showAppDropSnackBar(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
       ),
-      backgroundColor: s.background,
-      content: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(s.icon, color: s.foreground, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: s.foreground,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                height: 1.35,
+      backgroundColor: bg,
+      // Unique key per SnackBar so Material's internal Hero tags never collide
+      // when replacing snack bars or during route transitions (see heroes.dart).
+      content: KeyedSubtree(
+        key: UniqueKey(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(snackIcon, color: fg, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

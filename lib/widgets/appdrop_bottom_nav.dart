@@ -7,6 +7,7 @@ class AppDropBottomNav extends StatelessWidget {
   final BottomBarConfig config;
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final int? cartBadgeCount;
 
   const AppDropBottomNav({
     super.key,
@@ -14,6 +15,7 @@ class AppDropBottomNav extends StatelessWidget {
     required this.config,
     required this.currentIndex,
     required this.onTap,
+    this.cartBadgeCount,
   });
 
   @override
@@ -46,7 +48,10 @@ class AppDropBottomNav extends StatelessWidget {
           children: List.generate(items.length, (i) {
             final item = items[i];
             final selected = i == currentIndex;
-            final color = selected ? styling.bottomSelected : styling.bottomUnselected;
+            final color =
+                selected ? styling.bottomSelected : styling.bottomUnselected;
+            final showCartBadge =
+                _isCartItem(item) && (cartBadgeCount ?? 0) > 0;
 
             return Expanded(
               child: Material(
@@ -61,20 +66,34 @@ class AppDropBottomNav extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                          if (underline)
+                        if (underline)
                           Container(
                             height: 3,
                             width: 32,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.vertical(bottom: Radius.circular(3)),
-                            color: selected ? styling.bottomSelected : Colors.transparent,
+                              borderRadius: BorderRadius.vertical(
+                                  bottom: Radius.circular(3)),
+                              color: selected
+                                  ? styling.bottomSelected
+                                  : Colors.transparent,
                             ),
                           ),
-                          SizedBox(height: 10),
-                        Icon(
-                          iconFromNameForNav(item.icon, selected),
-                          color: color,
-                          size: 24,
+                        SizedBox(height: 10),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Icon(
+                              iconFromNameForNav(item.icon, selected),
+                              color: color,
+                              size: 24,
+                            ),
+                            if (showCartBadge)
+                              Positioned(
+                                right: -8,
+                                top: -8,
+                                child: _CartBadge(count: cartBadgeCount!),
+                              ),
+                          ],
                         ),
                         if (withLabels) ...[
                           const SizedBox(height: 4),
@@ -85,7 +104,8 @@ class AppDropBottomNav extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               color: color,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                              fontWeight:
+                                  selected ? FontWeight.w700 : FontWeight.w400,
                             ),
                           ),
                         ],
@@ -96,6 +116,44 @@ class AppDropBottomNav extends StatelessWidget {
               ),
             );
           }),
+        ),
+      ),
+    );
+  }
+}
+
+bool _isCartItem(BottomBarItemConfig item) {
+  final type = item.linkType.trim().toLowerCase();
+  final value =
+      (item.linkValue ?? '').trim().toLowerCase().replaceAll('_', '-');
+  if (type == 'system' && (value == 'cart-page' || value == 'cart')) {
+    return true;
+  }
+  return item.title.trim().toLowerCase() == 'cart';
+}
+
+class _CartBadge extends StatelessWidget {
+  const _CartBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: const BoxDecoration(
+        color: Color(0xFFE53935),
+        shape: BoxShape.circle,
+      ),
+      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+      alignment: Alignment.center,
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          height: 1,
         ),
       ),
     );
