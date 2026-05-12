@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/network_image_url.dart';
+import '../utils/component_shadow.dart';
 
 /// Wishlist row: image, title, price, remove; row tap opens product.
 Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
@@ -18,25 +19,30 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
     productMap = Map<String, dynamic>.from(rawProduct);
   }
 
-  return Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: productId.isEmpty || productMap == null
-          ? null
-          : () => env.dispatchAction(context, {
-                'type': 'open_product',
-                'productId': productId,
-                'product': productMap,
-              }),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: r.dp(16), vertical: r.dp(12)),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+  return Padding(
+    padding: EdgeInsets.symmetric(horizontal: r.dp(16), vertical: r.dp(6)),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(r.dp(12)),
+        onTap: productId.isEmpty || productMap == null
+            ? null
+            : () => env.dispatchAction(context, {
+                  'type': 'open_product',
+                  'productId': productId,
+                  'product': productMap,
+                }),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: r.dp(16), vertical: r.dp(12)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(r.dp(12)),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: kAppDropComponentShadows,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(r.dp(8)),
               child: Container(
@@ -98,5 +104,6 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
         ),
       ),
     ),
+  ),
   );
 }

@@ -6,6 +6,62 @@ import 'registry.dart';
 /// Default vertical space between blocks when rendered in a column.
 const double kDefaultBlockSpacing = 12.0;
 
+bool _shadowExcludedForWidgetType(String type) {
+  switch (type.toLowerCase().trim()) {
+    case 'spacer':
+      return true;
+    // Radius-matched shadow is drawn inside each block builder below — avoid stacking.
+    case 'image_banner':
+    case 'image_grid':
+    case 'carousel':
+    case 'video':
+    case 'image_slider':
+    case 'product_grid':
+    case 'product_description':
+    case 'wishlist_item':
+    case 'discount_code':
+    case 'cta_button':
+    case 'sort_filter':
+      return true;
+    // Full-bleed cart / wishlist empty state: renderer shadow wraps a tall [SizedBox],
+    // producing a heavy edge vignette — no per-block elevation needed.
+    case 'empty_cart':
+    // Cart rows are list tiles; outer shadow on each row reads as a dirty border.
+    case 'cart_item':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// Nested [product_block] inside [product_grid] already sits under [kAppDropComponentShadows]
+/// on the tile wrapper — skipping renderer shadow avoids a second layer on the meta card.
+bool _shadowExcludedForWidget(WidgetNode node) {
+  if (_shadowExcludedForWidgetType(node.type)) return true;
+  final t = node.type.toLowerCase().trim();
+  if (t == 'product_block' && node.b('embed_in_grid')) return true;
+  return false;
+}
+
+/// Soft elevation behind CMS blocks ([AppDropRenderer] / nested [env.renderNode]).
+Widget _maybeApplyComponentShadow(WidgetNode node, Widget child) {
+  if (_shadowExcludedForWidget(node)) return child;
+
+  return DecoratedBox(
+    decoration: BoxDecoration(
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0x24000000),
+          blurRadius: 14,
+          offset: const Offset(0, 6),
+          spreadRadius: 0,
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
+
 class AppDropRenderer extends StatelessWidget {
   final List<WidgetNode> nodes;
   final WidgetRegistry? registry;
@@ -50,7 +106,7 @@ class AppDropRenderer extends StatelessWidget {
             wishlistContainsProduct: wishlistContainsProduct,
           );
           if (builder == null) return const SizedBox.shrink();
-          return builder(ctx, node, env);
+          return _maybeApplyComponentShadow(node, builder(ctx, node, env));
         }
 
         final children = <Widget>[];

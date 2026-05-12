@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/network_image_url.dart';
+import '../utils/component_shadow.dart';
 
 /// Cart item row for cart page. Fixed block on cart page (not in add-block library).
 /// Props: enabled, imageUrl, productTitle, price (line subtotal), variant, quantity,
@@ -60,99 +61,105 @@ class _CartItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: r.dp(16), vertical: r.dp(12)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(r.dp(8)),
-            child: Container(
-              width: r.dp(80),
-              height: r.dp(80),
-              color: Colors.grey.shade200,
-              child: imageUrl == null
-                  ? null
-                  : Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      width: r.dp(80),
-                      height: r.dp(80),
-                      errorBuilder: (_, __, ___) => Icon(Icons.image_not_supported, size: r.dp(32), color: Colors.grey.shade400),
-                    ),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: r.dp(16), vertical: r.dp(6)),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: r.dp(16), vertical: r.dp(12)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r.dp(12)),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: kAppDropComponentShadows,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(r.dp(8)),
+              child: Container(
+                width: r.dp(80),
+                height: r.dp(80),
+                color: Colors.grey.shade200,
+                child: imageUrl == null
+                    ? Icon(Icons.image_not_supported, size: r.dp(32), color: Colors.grey.shade400)
+                    : Image.network(
+                        imageUrl!,
+                        fit: BoxFit.cover,
+                        width: r.dp(80),
+                        height: r.dp(80),
+                        errorBuilder: (_, __, ___) =>
+                            Icon(Icons.image_not_supported, size: r.dp(32), color: Colors.grey.shade400),
+                      ),
+              ),
             ),
-          ),
-          SizedBox(width: r.dp(12)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  productTitle.isEmpty ? 'Product title' : productTitle,
-                  style: TextStyle(
-                    fontSize: r.sp(14, min: 12, max: 16),
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF111827),
+            SizedBox(width: r.dp(12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    productTitle.isEmpty ? 'Product title' : productTitle,
+                    style: TextStyle(
+                      fontSize: r.sp(14, min: 12, max: 16),
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF111827),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: r.dp(4)),
-                Text(
-                  variant.isEmpty ? 'Variant' : variant,
-                  style: TextStyle(
-                    fontSize: r.sp(12, min: 10, max: 14),
-                    color: Colors.grey.shade600,
+                  SizedBox(height: r.dp(4)),
+                  Text(
+                    variant.isEmpty ? 'Variant' : variant,
+                    style: TextStyle(
+                      fontSize: r.sp(12, min: 10, max: 14),
+                      color: Colors.grey.shade600,
+                    ),
                   ),
-                ),
-                SizedBox(height: r.dp(8)),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        price.isEmpty ? '₹0' : price,
-                        style: TextStyle(
-                          fontSize: r.sp(14, min: 12, max: 16),
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF111827),
+                  SizedBox(height: r.dp(8)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          price.isEmpty ? '₹0' : price,
+                          style: TextStyle(
+                            fontSize: r.sp(14, min: 12, max: 16),
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF111827),
+                          ),
                         ),
                       ),
-                    ),
-                    if (productId.isNotEmpty)
-                      _CartQtyStepper(
-                        r: r,
-                        quantity: quantity,
-                        onDecrement: () => env.dispatchAction(context, {
-                          'type': 'decrement_cart',
-                          'productId': productId,
-                        }),
-                        onIncrement: () => env.dispatchAction(context, {
-                          'type': 'add_to_cart',
-                          'productId': productId,
-                          'product': productMap ?? <String, dynamic>{},
-                        }),
-                      )
-                    else
-                      Text(
-                        'Qty: $quantity',
-                        style: TextStyle(
-                          fontSize: r.sp(14),
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade700,
+                      if (productId.isNotEmpty)
+                        _CartQtyStepper(
+                          r: r,
+                          quantity: quantity,
+                          onDecrement: () => env.dispatchAction(context, {
+                                'type': 'decrement_cart',
+                                'productId': productId,
+                              }),
+                          onIncrement: () => env.dispatchAction(context, {
+                                'type': 'add_to_cart',
+                                'productId': productId,
+                                'product': productMap ?? <String, dynamic>{},
+                              }),
+                        )
+                      else
+                        Text(
+                          'Qty: $quantity',
+                          style: TextStyle(
+                            fontSize: r.sp(14),
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade700,
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

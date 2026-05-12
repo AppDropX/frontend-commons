@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 import '../utils/network_image_url.dart';
 
 Widget buildImageBanner(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
@@ -11,19 +12,26 @@ Widget buildImageBanner(BuildContext context, WidgetNode node, AppDropBuildEnv e
 
   final action = effectiveMediaTapAction(node);
 
-  Widget child = ClipRRect(
-    borderRadius: BorderRadius.circular(env.r.dp(radius)),
-    child: AspectRatio(
-      aspectRatio: aspect <= 0 ? (16 / 9) : aspect,
-      child: Container(
-        color: bg,
-        child: url == null
-            ? const SizedBox.expand()
-            : Image.network(
-                url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => ColoredBox(color: bg, child: const SizedBox.expand()),
-              ),
+  final br = BorderRadius.circular(env.r.dp(radius));
+  Widget child = Container(
+    decoration: BoxDecoration(
+      borderRadius: br,
+      boxShadow: kAppDropComponentShadows,
+    ),
+    child: ClipRRect(
+      borderRadius: br,
+      child: AspectRatio(
+        aspectRatio: aspect <= 0 ? (16 / 9) : aspect,
+        child: Container(
+          color: bg,
+          child: url == null
+              ? const SizedBox.expand()
+              : Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => ColoredBox(color: bg, child: const SizedBox.expand()),
+                ),
+        ),
       ),
     ),
   );

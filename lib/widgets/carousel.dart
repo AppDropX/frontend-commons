@@ -39,6 +39,7 @@ Widget buildCarousel(BuildContext context, WidgetNode node, AppDropBuildEnv env)
     return SizedBox(
       height: h,
       child: ListView.separated(
+        clipBehavior: Clip.none,
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: env.r.dp(paddingDp)),
         itemCount: urlList.length,
@@ -64,6 +65,7 @@ Widget buildCarousel(BuildContext context, WidgetNode node, AppDropBuildEnv env)
   return SizedBox(
     height: h,
     child: ListView.separated(
+      clipBehavior: Clip.none,
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(horizontal: env.r.dp(paddingDp)),
       itemCount: node.children.length,

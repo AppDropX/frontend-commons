@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 import '../utils/network_image_url.dart';
 
 class _SliderState extends StatefulWidget {
@@ -139,24 +140,31 @@ Widget buildImageSlider(BuildContext context, WidgetNode node, AppDropBuildEnv e
   final dotActive = parseHexColor(node.s('dotActive', def: '')) ?? const Color(0xFFFFFFFF);
   final dotInactive = parseHexColor(node.s('dotInactive', def: '')) ?? const Color(0x88FFFFFF);
 
-  return ClipRRect(
-    borderRadius: BorderRadius.circular(radius),
-    child: AspectRatio(
-      aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
-      child: _SliderState(
-        images: images,
-        imageRedirects: imageRedirectsListFromNode(node),
-        env: env,
-        hostContext: context,
-        radiusDp: radius,
-        showIndicator: showIndicator,
-        autoPlay: autoPlay,
-        intervalMs: interval,
-        dotSizeDp: dotSize,
-        dotGapDp: dotGap,
-        dotActive: dotActive,
-        dotInactive: dotInactive,
-        dotBottomPadding: env.r.dp(10),
+  final br = BorderRadius.circular(radius);
+  return Container(
+    decoration: BoxDecoration(
+      borderRadius: br,
+      boxShadow: kAppDropComponentShadows,
+    ),
+    child: ClipRRect(
+      borderRadius: br,
+      child: AspectRatio(
+        aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
+        child: _SliderState(
+          images: images,
+          imageRedirects: imageRedirectsListFromNode(node),
+          env: env,
+          hostContext: context,
+          radiusDp: radius,
+          showIndicator: showIndicator,
+          autoPlay: autoPlay,
+          intervalMs: interval,
+          dotSizeDp: dotSize,
+          dotGapDp: dotGap,
+          dotActive: dotActive,
+          dotInactive: dotInactive,
+          dotBottomPadding: env.r.dp(10),
+        ),
       ),
     ),
   );

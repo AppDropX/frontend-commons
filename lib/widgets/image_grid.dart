@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 import '../utils/network_image_url.dart';
 
 Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
@@ -31,17 +32,24 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
     itemBuilder: (_, i) {
       final u = sanitizedNetworkImageUrl(images[i]);
       final action = actionFromImageRedirectsAt(redirectList, i);
-      Widget tile = ClipRRect(
-        borderRadius: BorderRadius.circular(env.r.dp(radius)),
-        child: Container(
-          color: bg,
-          child: u == null
-              ? const SizedBox.expand()
-              : Image.network(
-                  u,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => ColoredBox(color: bg, child: const SizedBox.expand()),
-                ),
+      final br = BorderRadius.circular(env.r.dp(radius));
+      Widget tile = Container(
+        decoration: BoxDecoration(
+          borderRadius: br,
+          boxShadow: kAppDropComponentShadows,
+        ),
+        child: ClipRRect(
+          borderRadius: br,
+          child: Container(
+            color: bg,
+            child: u == null
+                ? const SizedBox.expand()
+                : Image.network(
+                    u,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => ColoredBox(color: bg, child: const SizedBox.expand()),
+                  ),
+          ),
         ),
       );
       if (action != null) {

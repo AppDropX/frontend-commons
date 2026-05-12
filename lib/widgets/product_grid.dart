@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 
 /// Resolves id for cart / PDP when CMS rows nest id under [action].
 dynamic _gridItemProductId(Map<String, dynamic> item) {
@@ -227,24 +228,31 @@ Widget _buildProductGridTile({
     );
   }
 
-  final card = ClipRRect(
-    borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.black12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          productContent,
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-                env.r.dp(8), env.r.dp(4), env.r.dp(8), env.r.dp(8)),
-            child: atcButton,
-          ),
-        ],
+  final radiusPx = BorderRadius.circular(env.r.dp(radiusDp));
+  final card = Container(
+    decoration: BoxDecoration(
+      borderRadius: radiusPx,
+      boxShadow: kAppDropComponentShadows,
+    ),
+    child: ClipRRect(
+      borderRadius: radiusPx,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            productContent,
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  env.r.dp(8), env.r.dp(4), env.r.dp(8), env.r.dp(8)),
+              child: atcButton,
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -375,6 +383,7 @@ Widget buildProductGrid(
         grid = SizedBox(
           height: tileH,
           child: ListView.separated(
+            clipBehavior: Clip.none,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
             itemCount: itemsRaw.length,

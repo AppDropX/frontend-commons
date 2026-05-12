@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 
 /// Product description accordion block.
 /// Props: enabled, defaultAccordionState (expanded|collapsed), title, description,
@@ -61,11 +62,13 @@ class _ProductDescriptionWidgetState extends State<_ProductDescriptionWidget> {
       height: 1.45,
     );
 
+    final cardRadius = BorderRadius.circular(widget.r.dp(12));
     return Container(
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300),
-        ),
+        color: Colors.white,
+        borderRadius: cardRadius,
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: kAppDropComponentShadows,
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),

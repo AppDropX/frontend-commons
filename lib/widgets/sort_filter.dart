@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 
 /// Sort & Filter bar for PLP.
 /// Props: enabled, sortLabel, sortOptions, defaultSortIndex, filterLabel, showFilterButton,
@@ -129,6 +130,7 @@ class _SortFilterWidgetState extends State<_SortFilterWidget> {
         color: widget.backgroundColor,
         border: Border.all(color: widget.borderColor),
         borderRadius: BorderRadius.circular(radius),
+        boxShadow: kAppDropComponentShadows,
       ),
       child: Row(
         children: [

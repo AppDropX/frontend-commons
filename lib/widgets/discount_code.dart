@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 
 /// Apply discount code block for cart page.
 /// Props: enabled, placeholder, buttonLabel, buttonColor, buttonFontColor, borderRadius.
@@ -83,6 +84,7 @@ class _DiscountCodeWidgetState extends State<_DiscountCodeWidget> {
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: Colors.grey.shade300),
+        boxShadow: kAppDropComponentShadows,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

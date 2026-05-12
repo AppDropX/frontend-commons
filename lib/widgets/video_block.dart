@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 
 /// Builds a video block from [WidgetNode] props: url, aspectRatio, radiusDp,
 /// autoplay, loop, showControls, muted, bgColor.
@@ -25,16 +26,24 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
     );
   }
 
+  final br = BorderRadius.circular(env.r.dp(radius));
+
   if (url.isEmpty) {
     return wrapTap(
-      ClipRRect(
-        borderRadius: BorderRadius.circular(env.r.dp(radius)),
-        child: AspectRatio(
-          aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
-          child: Container(
-            color: bg,
-            child: const Center(
-              child: Icon(Icons.videocam_off, size: 48, color: Colors.white54),
+      Container(
+        decoration: BoxDecoration(
+          borderRadius: br,
+          boxShadow: kAppDropComponentShadows,
+        ),
+        child: ClipRRect(
+          borderRadius: br,
+          child: AspectRatio(
+            aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
+            child: Container(
+              color: bg,
+              child: const Center(
+                child: Icon(Icons.videocam_off, size: 48, color: Colors.white54),
+              ),
             ),
           ),
         ),
@@ -42,20 +51,26 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
     );
   }
 
-  return ClipRRect(
-    borderRadius: BorderRadius.circular(env.r.dp(radius)),
-    child: AspectRatio(
-      aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
-      child: _VideoPlayer(
-        url: url,
-        autoplay: autoplay,
-        loop: loop,
-        showControls: showControls,
-        muted: muted,
-        bgColor: bg,
-        redirectAction: tapAction,
-        env: env,
-        buildContext: context,
+  return Container(
+    decoration: BoxDecoration(
+      borderRadius: br,
+      boxShadow: kAppDropComponentShadows,
+    ),
+    child: ClipRRect(
+      borderRadius: br,
+      child: AspectRatio(
+        aspectRatio: aspect <= 0 ? 16 / 9 : aspect,
+        child: _VideoPlayer(
+          url: url,
+          autoplay: autoplay,
+          loop: loop,
+          showControls: showControls,
+          muted: muted,
+          bgColor: bg,
+          redirectAction: tapAction,
+          env: env,
+          buildContext: context,
+        ),
       ),
     ),
   );
