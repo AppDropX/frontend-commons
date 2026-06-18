@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/page_toolbar_config.dart';
 import '../theme/appdrop_theme_config.dart';
 import '../utils/icon_mapper.dart';
+import '../utils/network_image_url.dart';
 
 class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   final AppStylingConfig styling;
@@ -82,6 +83,9 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget _titleWidget() {
     final pt = pageToolbar;
     if (pt != null) {
+      if (pt.center == ToolbarCenter.none) {
+        return const SizedBox.shrink();
+      }
       if (pt.center == ToolbarCenter.text) {
         return Text(
           pt.centerText.isEmpty ? title : pt.centerText,
@@ -90,10 +94,19 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
         );
       }
       if (pt.center == ToolbarCenter.logo) {
-        return Text(
-          title,
-          style: TextStyle(
-              color: styling.toolbarFont, fontWeight: FontWeight.w600),
+        final url = sanitizedNetworkImageUrl(pt.centerLogoUrl);
+        if (url == null) {
+          return const SizedBox.shrink();
+        }
+        final logoHeight = (_h * 0.52).clamp(28.0, 44.0);
+        return SizedBox(
+          height: logoHeight,
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ),
         );
       }
       if (pt.center == ToolbarCenter.collectionSearch) {

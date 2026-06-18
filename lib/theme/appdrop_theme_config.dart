@@ -16,6 +16,9 @@ String labelFromThemeNavEntry(dynamic e) {
 class AppStylingConfig {
   final String fontFamily;
 
+  /// Brand / default accent from theme settings (`default_color`).
+  final Color defaultColor;
+
   /// Default body text & icons (theme + blocks that inherit).
   final Color fontIconColor;
 
@@ -34,6 +37,7 @@ class AppStylingConfig {
 
   const AppStylingConfig({
     required this.fontFamily,
+    required this.defaultColor,
     required this.fontIconColor,
     required this.toolbarBg,
     required this.toolbarFont,
@@ -56,6 +60,8 @@ class AppStylingConfig {
 
     return AppStylingConfig(
       fontFamily: (json['font_family'] ?? 'Poppins').toString(),
+      defaultColor: parseHexColor(json['default_color']?.toString()) ??
+          const Color(0xFF54A685),
       fontIconColor: fontIcon ?? const Color(0xFF111111),
       toolbarBg: parseHexColor(json['toolbar_bg']?.toString()) ??
           const Color(0xFFFFFA66),
@@ -130,7 +136,10 @@ class SideMenuConfig {
     final items =
         (json['menu_items'] is List) ? (json['menu_items'] as List) : const [];
     return SideMenuConfig(
-      menuItems: items.map(SideMenuItemEntry.fromJson).toList(),
+      menuItems: items
+          .map(SideMenuItemEntry.fromJson)
+          .where((e) => e.enabled)
+          .toList(),
       showDividers: (json['show_dividers'] ?? true) == true,
     );
   }
@@ -139,12 +148,14 @@ class SideMenuConfig {
 /// One side menu row with link metadata.
 class SideMenuItemEntry {
   final String title;
+  final bool enabled;
   final String linkType;
   final String? linkValue;
   final String? urlOpenType;
 
   const SideMenuItemEntry({
     required this.title,
+    this.enabled = true,
     this.linkType = 'system',
     this.linkValue,
     this.urlOpenType,
@@ -161,6 +172,7 @@ class SideMenuItemEntry {
     if (e is String) {
       return SideMenuItemEntry(
         title: e,
+        enabled: true,
         linkType: 'system',
         linkValue: 'home-page',
       );
@@ -169,6 +181,7 @@ class SideMenuItemEntry {
       final m = Map<String, dynamic>.from(e);
       return SideMenuItemEntry(
         title: labelFromThemeNavEntry(m),
+        enabled: m['enabled'] as bool? ?? true,
         linkType: (m['link_type'] ?? 'system').toString(),
         linkValue: m['link_value']?.toString(),
         urlOpenType: _normalizeUrlOpenType(m['url_open_type']),
@@ -188,6 +201,7 @@ class SideMenuItemEntry {
 /// One top navigation tab: label + link target (same shape as theme JSON entries).
 class TopNavTabEntry {
   final String title;
+  final bool enabled;
   final String linkType;
   final String? linkValue;
 
@@ -196,6 +210,7 @@ class TopNavTabEntry {
 
   const TopNavTabEntry({
     required this.title,
+    this.enabled = true,
     this.linkType = 'system',
     this.linkValue,
     this.urlOpenType,
@@ -212,6 +227,7 @@ class TopNavTabEntry {
     if (e is String) {
       return TopNavTabEntry(
         title: e,
+        enabled: true,
         linkType: 'system',
         linkValue: 'home-page',
       );
@@ -220,6 +236,7 @@ class TopNavTabEntry {
       final m = Map<String, dynamic>.from(e);
       return TopNavTabEntry(
         title: labelFromThemeNavEntry(m),
+        enabled: m['enabled'] as bool? ?? true,
         linkType: (m['link_type'] ?? 'system').toString(),
         linkValue: m['link_value']?.toString(),
         urlOpenType: _normalizeUrlOpenType(m['url_open_type']),
@@ -237,10 +254,15 @@ class TopNavTabEntry {
 }
 
 class TopNavigationConfig {
+  final bool enabled;
+
   /// Full tab rows from theme JSON (title, link_type, link_value).
   final List<TopNavTabEntry> items;
 
-  const TopNavigationConfig({required this.items});
+  const TopNavigationConfig({
+    this.enabled = true,
+    required this.items,
+  });
 
   /// Tab labels for the horizontal bar.
   List<String> get tabs => items.map((e) => e.title).toList();
@@ -248,7 +270,8 @@ class TopNavigationConfig {
   factory TopNavigationConfig.fromJson(Map<String, dynamic> json) {
     final list = (json['tabs'] is List) ? (json['tabs'] as List) : const [];
     return TopNavigationConfig(
-      items: list.map(TopNavTabEntry.fromJson).toList(),
+      enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
+      items: list.map(TopNavTabEntry.fromJson).where((e) => e.enabled).toList(),
     );
   }
 }

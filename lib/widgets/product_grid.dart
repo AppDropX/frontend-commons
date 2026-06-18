@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
+import '../features/rating_review_feature.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
 import '../utils/component_shadow.dart';
+
+/// Horizontal and below-image inset for grid product cards.
+/// Keep in sync with [kGridProductCardContentPadDp] in product_block.dart.
+const double _gridProductCardContentPadDp = 8.0;
+const double _gridAtcButtonDp = 32;
+const double _gridAtcPaddingTopDp = 4.0;
+const double _gridAtcPaddingBottomDp = _gridProductCardContentPadDp;
 
 /// Resolves id for cart / PDP when CMS rows nest id under [action].
 dynamic _gridItemProductId(Map<String, dynamic> item) {
@@ -69,12 +77,17 @@ Widget _buildProductGridTile({
     };
   }();
   final productId = _gridItemProductId(item);
+  final pidStr = productId?.toString() ?? '';
+  final heroTag = pidStr.isEmpty
+      ? ''
+      : ProductHeroTags.sourceInstance(pidStr, item);
 
   final block = WidgetNode(
     type: 'product_block',
     props: {
-      'embed_in_grid': showAddToCart,
+      'embed_in_grid': true,
       'product': item,
+      if (heroTag.isNotEmpty) 'heroTag': heroTag,
       if (gridAction != null) 'action': gridAction,
       'wishlistAction': {
         'type': 'toggle_wishlist',
@@ -85,180 +98,143 @@ Widget _buildProductGridTile({
   );
 
   final productContent = env.renderNode(context, block) as Widget;
-  if (!showAddToCart) {
-    final w = productContent;
-    if (horizontalRow) return SizedBox(width: tileW, height: tileH, child: w);
-    return w;
+
+  Widget wrapCardTap(Widget child) {
+    if (gridAction == null) return child;
+    final openAction = {
+      ...gridAction,
+      if (heroTag.isNotEmpty) 'heroTag': heroTag,
+      'product': {
+        ...item,
+        if (heroTag.isNotEmpty) 'heroTag': heroTag,
+      },
+    };
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => env.dispatchAction(context, openAction),
+      child: child,
+    );
   }
 
-  final pid = productId;
-  final pidStr = pid?.toString() ?? '';
-  final inCartQty = env.cartQuantityForProduct?.call(pidStr) ?? 0;
-  final atcRadius = _addToCartRadiusFromStyle(addToCartShape, env.r);
-  final addPayload = {
-    'type': 'add_to_cart',
-    if (pid != null) 'productId': pid,
-    'title': item['title'],
-    'product': item,
-  };
+  final productArea = ClipRect(
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: productContent,
+    ),
+  );
 
-  final Widget atcButton;
-  if (env.cartQuantityForProduct != null && inCartQty > 0) {
-    atcButton = Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(atcRadius),
-      clipBehavior: Clip.antiAlias,
-      child: Ink(
-        decoration: BoxDecoration(
-          color: addToCartIsOutlined ? Colors.transparent : addToCartCtaColor,
-          borderRadius: BorderRadius.circular(atcRadius),
-          border: addToCartIsOutlined
-              ? Border.all(color: addToCartCtaColor, width: 1.5)
-              : null,
-          boxShadow: addToCartIsOutlined
-              ? null
-              : [
-                  BoxShadow(
-                    color: addToCartCtaColor.withValues(alpha: 0.18),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-        ),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: env.r.dp(4), vertical: env.r.dp(4)),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  final radiusPx = BorderRadius.circular(env.r.dp(radiusDp));
+  Widget gridCardShell({
+    required Widget child,
+    Widget? bottom,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: radiusPx,
+        boxShadow: kAppDropComponentShadows,
+      ),
+      child: ClipRRect(
+        borderRadius: radiusPx,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              InkWell(
-                onTap: () {
-                  env.dispatchAction(context, {
-                    'type': 'decrement_cart',
-                    if (pid != null) 'productId': pid,
-                  });
-                },
-                child: Padding(
-                  padding: EdgeInsets.all(env.r.dp(6)),
-                  child: Icon(
-                    Icons.remove,
-                    size: env.r.dp(18),
-                    color: addToCartTextColor,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '$inCartQty',
-                    style: TextStyle(
-                      color: addToCartTextColor,
-                      fontSize: env.r.sp(
-                        addToCartTitleSize.clamp(12, 24).toDouble(),
-                        min: 12,
-                        max: 24,
-                      ),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: () => env.dispatchAction(context, addPayload),
-                child: Padding(
-                  padding: EdgeInsets.all(env.r.dp(6)),
-                  child: Icon(
-                    Icons.add,
-                    size: env.r.dp(18),
-                    color: addToCartTextColor,
-                  ),
-                ),
-              ),
+              Expanded(child: child),
+              if (bottom != null) bottom,
             ],
           ),
         ),
       ),
     );
-  } else {
-    atcButton = Material(
+  }
+
+  if (!showAddToCart) {
+    final card = gridCardShell(child: wrapCardTap(productArea));
+    return SizedBox(
+      width: horizontalRow ? tileW : double.infinity,
+      height: tileH,
+      child: card,
+    );
+  }
+
+  final atcRadius = _addToCartRadiusFromStyle(addToCartShape, env.r);
+  final atcButtonHeight = env.r.dp(_gridAtcButtonDp);
+  final addPayload = {
+    'type': 'add_to_cart',
+    if (pidStr.isNotEmpty) 'productId': pidStr,
+    'title': item['title'],
+    'product': item,
+  };
+
+  final atcDecoration = BoxDecoration(
+    color: addToCartIsOutlined ? Colors.transparent : addToCartCtaColor,
+    borderRadius: BorderRadius.circular(atcRadius),
+    border: addToCartIsOutlined
+        ? Border.all(color: addToCartCtaColor, width: 1.5)
+        : null,
+    boxShadow: addToCartIsOutlined
+        ? null
+        : [
+            BoxShadow(
+              color: addToCartCtaColor.withValues(alpha: 0.18),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+  );
+
+  final atcButton = SizedBox(
+    height: atcButtonHeight,
+    child: Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(atcRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => env.dispatchAction(context, addPayload),
         child: Ink(
-          decoration: BoxDecoration(
-            color: addToCartIsOutlined ? Colors.transparent : addToCartCtaColor,
-            borderRadius: BorderRadius.circular(atcRadius),
-            border: addToCartIsOutlined
-                ? Border.all(color: addToCartCtaColor, width: 1.5)
-                : null,
-            boxShadow: addToCartIsOutlined
-                ? null
-                : [
-                    BoxShadow(
-                      color: addToCartCtaColor.withValues(alpha: 0.18),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: env.r.dp(8), vertical: env.r.dp(6)),
-            child: Center(
-              child: Text(
-                addToCartTitle.isEmpty ? 'Add to Cart' : addToCartTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: addToCartTextColor,
-                  fontSize: env.r.sp(
-                    addToCartTitleSize.clamp(12, 24).toDouble(),
-                    min: 12,
-                    max: 24,
-                  ),
-                  fontWeight: FontWeight.w600,
+          decoration: atcDecoration,
+          child: Center(
+            child: Text(
+              addToCartTitle.isEmpty ? 'Add to Cart' : addToCartTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: addToCartTextColor,
+                fontSize: env.r.sp(
+                  addToCartTitleSize.clamp(12, 24).toDouble(),
+                  min: 12,
+                  max: 24,
                 ),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  final radiusPx = BorderRadius.circular(env.r.dp(radiusDp));
-  final card = Container(
-    decoration: BoxDecoration(
-      borderRadius: radiusPx,
-      boxShadow: kAppDropComponentShadows,
-    ),
-    child: ClipRRect(
-      borderRadius: radiusPx,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.black12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            productContent,
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                  env.r.dp(8), env.r.dp(4), env.r.dp(8), env.r.dp(8)),
-              child: atcButton,
-            ),
-          ],
-        ),
-      ),
     ),
   );
 
-  if (horizontalRow) return SizedBox(width: tileW, height: tileH, child: card);
-  return card;
+  final card = gridCardShell(
+    child: wrapCardTap(productArea),
+    bottom: Padding(
+      padding: EdgeInsets.fromLTRB(
+        env.r.dp(_gridProductCardContentPadDp),
+        env.r.dp(_gridAtcPaddingTopDp),
+        env.r.dp(_gridProductCardContentPadDp),
+        env.r.dp(_gridAtcPaddingBottomDp),
+      ),
+      child: atcButton,
+    ),
+  );
+
+  return SizedBox(
+    width: horizontalRow ? tileW : double.infinity,
+    height: tileH,
+    child: card,
+  );
 }
 
 Widget buildProductGrid(
@@ -276,12 +252,15 @@ Widget buildProductGrid(
 
   final spacingDp = node.d('spacingDp', def: 12);
   final collectionHeading = _gridCollectionHeading(node);
-  final showCollectionHeading = node.b('showCollectionHeading', def: true);
+  final onHomePage = env.showProductGridHomeTitle;
+  final showCollectionHeading =
+      onHomePage && node.b('showCollectionHeading', def: true);
   final addToCartTitle = _addToCartTitle(node);
   final addToCartTitleSize = node.d('addToCartTitleSize', def: 16);
 
-  final showGridTitle = node.b('showGridTitle', def: false);
-  final showViewAllButton = node.b('showViewAllButton', def: false);
+  final showGridTitle = onHomePage && node.b('showGridTitle', def: false);
+  final showViewAllButton =
+      onHomePage && node.b('showViewAllButton', def: false);
   final gridTitleText = node.s('gridTitleText', def: '').trim();
   final resolvedTitle =
       gridTitleText.isNotEmpty ? gridTitleText : collectionHeading;
@@ -300,8 +279,6 @@ Widget buildProductGrid(
   final isCarousel = layoutMode == 'carousel' || layoutMode == 'horizontal';
 
   const double maxTileDp = 190;
-  const double addToCartBlockDp = 58;
-
   final useSectionHeader = showGridTitle || showViewAllButton;
   final legacyHeader = !useSectionHeader &&
       showCollectionHeading &&
@@ -345,16 +322,21 @@ Widget buildProductGrid(
                   (pb['filled_button_color'] ?? '#FFFFFF').toString()) ??
               const Color(0xFFFFFFFF));
 
-      final padDp = _d(pb, 'card_padding', 12);
       final radiusDp = _d(pb, 'corner_radius', 12);
       final maxLines = _i(pb, 'max_lines', 2);
       final showVendor = _b(pb, 'show_vendor', true);
-      final showRating = _b(pb, 'show_rating', true);
+      // Rating & Review feature temporarily disabled
+      final showRating =
+          kRatingReviewFeatureEnabled && _b(pb, 'show_rating', true);
       final showSwatches = _b(pb, 'show_swatches', true);
       final aspectIdx = _i(pb, 'image_aspect_ratio_index', 0);
       final aspect = _aspectFromIndex(aspectIdx);
 
-      final addToCartExtra = showAddToCart ? env.r.dp(addToCartBlockDp) : 0.0;
+      final addToCartExtra = showAddToCart
+          ? env.r.dp(_gridAtcPaddingTopDp) +
+              env.r.dp(_gridAtcButtonDp) +
+              env.r.dp(_gridAtcPaddingBottomDp)
+          : 0.0;
 
       late final double tileW;
       late final double tileH;
@@ -365,15 +347,15 @@ Widget buildProductGrid(
         tileW = maxTileW.clamp(120.0, width * 0.48);
         final imageH = tileW / aspect;
         final metaH = _estimateMetaHeight(
-            env, padDp, maxLines, showVendor, showRating, showSwatches);
-        tileH = imageH + metaH + env.r.dp(2) + addToCartExtra;
+            env, maxLines, showVendor, showRating, showSwatches);
+        tileH = imageH + metaH + addToCartExtra;
       } else {
         gridCols = (width / maxTileW).floor().clamp(2, 3);
         tileW = (width - spacing * (gridCols - 1)) / gridCols;
         final imageH = tileW / aspect;
         final metaH = _estimateMetaHeight(
-            env, padDp, maxLines, showVendor, showRating, showSwatches);
-        tileH = imageH + metaH + env.r.dp(2) + addToCartExtra;
+            env, maxLines, showVendor, showRating, showSwatches);
+        tileH = imageH + metaH + addToCartExtra;
       }
 
       final mainGap = spacing * 0.65;
@@ -540,30 +522,41 @@ Widget buildProductGrid(
   );
 }
 
-double _estimateMetaHeight(AppDropBuildEnv env, double padDp, int maxLines,
-    bool showVendor, bool showRating, bool showSwatches) {
-  double h = env.r.dp(padDp * 2);
+double _estimateMetaHeight(AppDropBuildEnv env, int maxLines, bool showVendor,
+    bool showRating, bool showSwatches) {
+  // Compact grid meta — mirrors [buildProductBlock] when embed_in_grid is true.
+  const gridMetaPadTop = _gridProductCardContentPadDp;
+  const gridMetaPadBottom = 0.0;
+  const vendorBottomGap = 2.0;
+  const vendorLineDp = 16.0;
+  const titleLineDp = 20.0;
+  const titlePriceGap = 4.0;
+  const priceRowDp = 20.0;
+  const ratingBlockDp = 24.0;
+  const swatchGapDp = 8.0;
+  const swatchRowDp = 18.0;
+  // Buffer for font scaling / rounding vs [_gridAtcBlockDp] sum.
+  const safetyDp = 4.0;
+
+  double h = env.r.dp(gridMetaPadTop + gridMetaPadBottom + safetyDp);
 
   if (showVendor) {
-    h += env.r.dp(6);
-    h += env.r.dp(14);
+    h += env.r.dp(vendorBottomGap + vendorLineDp);
   }
 
   final lines = maxLines <= 0 ? 2 : maxLines;
-  h += env.r.dp(18) * lines;
+  h += env.r.dp(titleLineDp) * lines;
 
-  h += env.r.dp(10);
+  h += env.r.dp(titlePriceGap);
 
-  if (showRating) h += env.r.dp(26);
+  if (showRating) h += env.r.dp(ratingBlockDp);
 
-  h += env.r.dp(20);
+  h += env.r.dp(priceRowDp);
 
   if (showSwatches) {
-    h += env.r.dp(12);
-    h += env.r.dp(18);
+    h += env.r.dp(swatchGapDp + swatchRowDp);
   }
 
-  h += env.r.dp(6);
   return h;
 }
 
@@ -627,6 +620,6 @@ double _addToCartRadiusFromStyle(String style, R r) {
       return r.dp(999);
     case 'rounded':
     default:
-      return r.dp(12);
+      return r.dp(8);
   }
 }

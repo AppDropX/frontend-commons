@@ -21,74 +21,81 @@ class AppDropTopTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (config.items.isEmpty) return const SizedBox.shrink();
+    final items = config.items.take(5).toList(growable: false);
+    if (items.isEmpty) return const SizedBox.shrink();
 
-    final baseStyle =
-        Theme.of(context).textTheme.labelLarge ?? Theme.of(context).textTheme.bodyMedium!;
+    final baseStyle = Theme.of(context).textTheme.labelLarge ??
+        Theme.of(context).textTheme.bodyMedium!;
 
     return ColoredBox(
       color: styling.toolbarBg,
       child: SizedBox(
         height: _barHeight,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: config.items.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 16),
-          itemBuilder: (_, i) {
+        width: double.infinity,
+        child: Row(
+          children: List.generate(items.length, (i) {
             final selected = i == selectedIndex;
 
-            return SizedBox(
-              height: _barHeight,
-              child: InkWell(
-                onTap: () => onChanged(i),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      IntrinsicWidth(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              config.items[i].title,
-                              maxLines: 1,
-                              softWrap: false,
-                              textAlign: TextAlign.center,
-                              style: baseStyle.copyWith(
-                                fontSize: 14,
-                                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                                color: selected
-                                    ? styling.toolbarFont
-                                    : styling.toolbarFont.withValues(alpha: 0.6),
+            return Expanded(
+              child: SizedBox(
+                height: _barHeight,
+                child: InkWell(
+                  onTap: () => onChanged(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Spacer(),
+                              Text(
+                                items[i].title,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: baseStyle.copyWith(
+                                  fontSize: 14,
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
+                                  color: selected
+                                      ? styling.toolbarFont
+                                      : styling.toolbarFont
+                                          .withValues(alpha: 0.6),
+                                ),
                               ),
-                            ),
-                            SizedBox(height: _gapAboveIndicator),
-                            SizedBox(
-                              height: _indicatorHeight,
-                              child: selected
-                                  ? DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: styling.toolbarFont,
-                                        borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(4),
+                              SizedBox(height: _gapAboveIndicator),
+                              SizedBox(
+                                height: _indicatorHeight,
+                                width: double.infinity,
+                                child: selected
+                                    ? DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: styling.toolbarFont,
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                            top: Radius.circular(4),
+                                          ),
                                         ),
-                                      ),
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
-                          ],
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             );
-          },
+          }),
         ),
       ),
     );

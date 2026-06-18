@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/network_image_url.dart';
 import '../utils/component_shadow.dart';
+import 'product_hero_image.dart';
 
 /// Wishlist row: image, title, price, remove; row tap opens product.
 Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
@@ -13,6 +14,9 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final productTitle = node.s('productTitle', def: 'Product');
   final price = node.s('price', def: '');
   final productId = node.s('productId', def: '').trim();
+  final heroTag = productId.isEmpty
+      ? ''
+      : ProductHeroTags.sourceInstance(productId, context);
   Map<String, dynamic>? productMap;
   final rawProduct = node.props['product'];
   if (rawProduct is Map) {
@@ -30,7 +34,11 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
             : () => env.dispatchAction(context, {
                   'type': 'open_product',
                   'productId': productId,
-                  'product': productMap,
+                  'heroTag': heroTag,
+                  'product': {
+                    ...productMap!,
+                    'heroTag': heroTag,
+                  },
                 }),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: r.dp(16), vertical: r.dp(12)),
@@ -43,23 +51,30 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(r.dp(8)),
-              child: Container(
-                width: r.dp(80),
-                height: r.dp(80),
-                color: Colors.grey.shade200,
-                child: imageUrl == null
-                    ? Icon(Icons.image_not_supported, size: r.dp(32), color: Colors.grey.shade400)
-                    : Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        width: r.dp(80),
-                        height: r.dp(80),
-                        errorBuilder: (_, __, ___) =>
-                            Icon(Icons.image_not_supported, size: r.dp(32), color: Colors.grey.shade400),
+            SizedBox(
+              width: r.dp(80),
+              height: r.dp(80),
+              child: productId.isEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(r.dp(8)),
+                      child: ColoredBox(
+                        color: Colors.grey.shade200,
+                        child: Icon(
+                          Icons.image_not_supported,
+                          size: r.dp(32),
+                          color: Colors.grey.shade400,
+                        ),
                       ),
-              ),
+                    )
+                  : buildProductHeroImage(
+                      productId: productId,
+                      imageUrl: imageUrl,
+                      aspectRatio: 1,
+                      boxFit: BoxFit.cover,
+                      imageBg: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(r.dp(8)),
+                      heroTag: heroTag,
+                    ),
             ),
             SizedBox(width: r.dp(12)),
             Expanded(

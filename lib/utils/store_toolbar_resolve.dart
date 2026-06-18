@@ -1,7 +1,7 @@
 import '../models/page_toolbar_config.dart';
 
 /// Maps a storefront route (+ optional dashboard page name) to the same catalog keys
-/// used by the theme builder (`home-page`, `plp-page`, `pdp-page`, `cart-page`).
+/// used by the theme builder (`home-page`, `plp-page`, `pdp-page`, `cart-page`, `wishlist-page`, `search-page`).
 String storeCatalogKeyForRoute(String route, {String? pageName}) {
   final n = pageName?.trim().toLowerCase();
   if (n != null && n.isNotEmpty) {
@@ -14,6 +14,10 @@ String storeCatalogKeyForRoute(String route, {String? pageName}) {
         return 'pdp-page';
       case 'cart':
         return 'cart-page';
+      case 'wishlist':
+        return 'wishlist-page';
+      case 'search':
+        return 'search-page';
     }
   }
 
@@ -31,6 +35,10 @@ String storeCatalogKeyForRoute(String route, {String? pageName}) {
       return 'plp-page';
     case '/cart':
       return 'cart-page';
+    case '/wishlist':
+      return 'wishlist-page';
+    case '/search':
+      return 'search-page';
     default:
       if (r.startsWith('/products/') && r.length > '/products/'.length) {
         return 'pdp-page';
@@ -55,6 +63,16 @@ PageToolbarConfig effectiveStorefrontToolbar(
           : base.copyWith(left: ToolbarLeft.back);
     case 'cart-page':
       final base = stored ?? PageToolbarConfig.cartDefaults;
+      return base.left == ToolbarLeft.back
+          ? base
+          : base.copyWith(left: ToolbarLeft.back);
+    case 'wishlist-page':
+      final base = stored ?? PageToolbarConfig.wishlistDefaults;
+      return base.left == ToolbarLeft.back
+          ? base
+          : base.copyWith(left: ToolbarLeft.back);
+    case 'search-page':
+      final base = stored ?? PageToolbarConfig.searchDefaults;
       return base.left == ToolbarLeft.back
           ? base
           : base.copyWith(left: ToolbarLeft.back);

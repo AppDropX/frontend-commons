@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_commons/utils/appdrop_snackbar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'appdrop_theme_config.dart';
+
+/// Font families that [AppDropThemeData] can actually apply via Google Fonts.
+const List<String> kSupportedAppStylingFontFamilies = [
+  'Poppins',
+  'Inter',
+  'Roboto',
+  'Open Sans',
+  'Lato',
+];
 
 class AppDropThemeData {
   static ThemeData buildFromConfig(AppDropThemeConfig cfg) {
@@ -15,6 +25,12 @@ class AppDropThemeData {
     );
 
     return base.copyWith(
+      scaffoldBackgroundColor: Colors.white,
+      canvasColor: Colors.white,
+      colorScheme: base.colorScheme.copyWith(
+        surface: Colors.white,
+        surfaceContainerLowest: Colors.white,
+      ),
       textTheme: tt,
       primaryTextTheme: tt,
       iconTheme: IconThemeData(color: content),

@@ -1,4 +1,12 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:vibration/vibration.dart';
+
+import '../theme/appdrop_theme_scope.dart';
+import 'color.dart';
 
 /// Max width for the centered floating snack bar on wide layouts.
 const double kAppDropSnackBarMaxWidth = 360;
@@ -6,157 +14,382 @@ const double kAppDropSnackBarMaxWidth = 360;
 /// Minimum width on very narrow viewports.
 const double kAppDropSnackBarMinWidth = 200;
 
-const double _kScreenHorizontalGutter = 32;
+const Duration _kCompactSnackDuration = Duration(milliseconds: 1800);
+
+/// When true, [showAppDropSnackBar] anchors the pill near the top of the scaffold.
+class AppDropSnackBarScope extends InheritedWidget {
+  const AppDropSnackBarScope({
+    super.key,
+    this.alignTop = false,
+    this.prominent = false,
+    required super.child,
+  });
+
+  final bool alignTop;
+  final bool prominent;
+
+  static bool alignTopOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<AppDropSnackBarScope>()
+            ?.alignTop ??
+        false;
+  }
+
+  static bool prominentOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<AppDropSnackBarScope>()
+            ?.prominent ??
+        false;
+  }
+
+  @override
+  bool updateShouldNotify(AppDropSnackBarScope oldWidget) =>
+      alignTop != oldWidget.alignTop || prominent != oldWidget.prominent;
+}
+
+EdgeInsets _snackBarMargin(
+  BuildContext context, {
+  required bool alignTop,
+  bool prominent = false,
+}) {
+  if (!alignTop) {
+    return const EdgeInsets.fromLTRB(16, 0, 16, 12);
+  }
+  final size = MediaQuery.sizeOf(context);
+  final topInset = MediaQuery.paddingOf(context).top;
+  final estimatedSnackHeight = prominent ? 54.0 : 44.0;
+  return EdgeInsets.only(
+    left: 16,
+    right: 16,
+    bottom: size.height - topInset - estimatedSnackHeight - 12,
+  );
+}
 
 /// Visual category for [showAppDropSnackBar].
 enum AppDropSnackKind {
-  /// Saved / created / added — green
   success,
-
-  /// Failures and validation — red
   error,
-
-  /// Completed removal (delete, revoke) — deep red
   removed,
-
-  /// Limits and cautions — amber
   warning,
-
-  /// Neutral information — blue
   info,
-
-  /// Generic toast — charcoal
   neutral,
 }
 
-class _SnackStyle {
-  const _SnackStyle({
-    required this.background,
-    required this.foreground,
-    required this.icon,
-  });
+class _SnackAccent {
+  const _SnackAccent({required this.accent, required this.icon});
 
-  final Color background;
-  final Color foreground;
+  final Color accent;
   final IconData icon;
 }
 
-_SnackStyle _styleForKind(AppDropSnackKind kind, ColorScheme cs) {
+_SnackAccent _accentForKind(AppDropSnackKind kind, ColorScheme cs) {
   switch (kind) {
     case AppDropSnackKind.success:
-      return const _SnackStyle(
-        background: Color(0xFF166534),
-        foreground: Color(0xFFF0FDF4),
+      return const _SnackAccent(
+        accent: Color(0xFF16A34A),
         icon: Icons.check_circle_rounded,
       );
     case AppDropSnackKind.error:
-      return _SnackStyle(
-        background: cs.error,
-        foreground: cs.onError,
-        icon: Icons.error_rounded,
-      );
+      return _SnackAccent(accent: cs.error, icon: Icons.error_rounded);
     case AppDropSnackKind.removed:
-      return const _SnackStyle(
-        background: Color(0xFF991B1B),
-        foreground: Color(0xFFFEF2F2),
-        icon: Icons.delete_forever_rounded,
+      return const _SnackAccent(
+        accent: Color(0xFFDC2626),
+        icon: Icons.delete_outline_rounded,
       );
     case AppDropSnackKind.warning:
-      return const _SnackStyle(
-        background: Color(0xFFB45309),
-        foreground: Color(0xFFFFFBEB),
+      return const _SnackAccent(
+        accent: Color(0xFFD97706),
         icon: Icons.warning_rounded,
       );
     case AppDropSnackKind.info:
-      return const _SnackStyle(
-        background: Color(0xFF1D4ED8),
-        foreground: Color(0xFFEFF6FF),
+      return const _SnackAccent(
+        accent: Color(0xFF2563EB),
         icon: Icons.info_rounded,
       );
     case AppDropSnackKind.neutral:
-      return const _SnackStyle(
-        background: Color(0xFF1F2937),
-        foreground: Color(0xFFF9FAFB),
-        icon: Icons.notifications_rounded,
+      return const _SnackAccent(
+        accent: Color(0xFF374151),
+        icon: Icons.notifications_none_rounded,
       );
   }
 }
 
-/// Compact, centered-at-bottom snack bar shared across AppDrop apps.
-///
-/// Pass [kind] for color semantics. If [isError] is true, [kind] is ignored
-/// and [AppDropSnackKind.error] is used.
+DateTime? _lastWishlistHapticAt;
+
+/// Device vibration + haptic when a product is saved to wishlist.
+void triggerWishlistAddHaptic() {
+  if (kIsWeb) return;
+  unawaited(_runWishlistAddHaptic());
+}
+
+Future<void> _runWishlistAddHaptic() async {
+  final now = DateTime.now();
+  if (_lastWishlistHapticAt != null &&
+      now.difference(_lastWishlistHapticAt!) <
+          const Duration(milliseconds: 400)) {
+    return;
+  }
+  _lastWishlistHapticAt = now;
+
+  try {
+    await HapticFeedback.heavyImpact();
+    final hasVibrator = await Vibration.hasVibrator();
+    if (hasVibrator == true) {
+      const durationMs = 90;
+      final hasAmplitude = await Vibration.hasAmplitudeControl();
+      if (hasAmplitude == true) {
+        await Vibration.vibrate(duration: durationMs, amplitude: 200);
+      } else {
+        await Vibration.vibrate(duration: durationMs);
+      }
+      return;
+    }
+    await HapticFeedback.heavyImpact();
+  } catch (_) {
+    try {
+      await HapticFeedback.heavyImpact();
+    } catch (_) {}
+  }
+}
+
+Color _wishlistAccentForSnack(BuildContext context, Color? override) {
+  if (override != null) return override;
+  final cfg = AppDropThemeScope.maybeOf(context);
+  if (cfg != null) {
+    final wishlist = parseHexColor(
+      cfg.productBlock['product_wishlist_color']?.toString(),
+    );
+    if (wishlist != null) return wishlist;
+    final defaultColor = cfg.appStyling.defaultColor;
+    if (defaultColor != Colors.transparent) return defaultColor;
+  }
+  return const Color(0xFFE53935);
+}
+
+void _presentCompactSnackBar(
+  ScaffoldMessengerState messenger, {
+  required String message,
+  required Color accent,
+  required IconData icon,
+  Duration duration = _kCompactSnackDuration,
+  bool clearExisting = true,
+  EdgeInsets? margin,
+  bool alignTop = false,
+  bool prominent = false,
+}) {
+  if (clearExisting) {
+    messenger.clearSnackBars();
+  }
+
+  messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      margin: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      duration: duration,
+      elevation: 0,
+      padding: EdgeInsets.zero,
+      backgroundColor: Colors.transparent,
+      dismissDirection:
+          alignTop ? DismissDirection.up : DismissDirection.down,
+      content: KeyedSubtree(
+        key: UniqueKey(),
+        child: _CompactSnackBody(
+          message: message,
+          accent: accent,
+          icon: icon,
+          prominent: prominent,
+        ),
+      ),
+    ),
+  );
+}
+
+/// Compact centered pill snack bar shared across AppDrop apps.
 void showAppDropSnackBar(
   BuildContext context,
   String message, {
   AppDropSnackKind kind = AppDropSnackKind.neutral,
   bool isError = false,
-  Duration duration = const Duration(seconds: 3),
+  Duration duration = _kCompactSnackDuration,
   bool clearExisting = true,
   Color? backgroundColor,
   Color? foregroundColor,
   IconData? icon,
+  ScaffoldMessengerState? messenger,
+  bool? alignTop,
+  bool? prominent,
 }) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
-
-  if (clearExisting) {
-    messenger.clearSnackBars();
-  }
-
-  final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
-  final screenW = MediaQuery.sizeOf(context).width;
-  final targetInner = (screenW - _kScreenHorizontalGutter)
-      .clamp(kAppDropSnackBarMinWidth, kAppDropSnackBarMaxWidth)
-      .toDouble();
-  var sideMargin = (screenW - targetInner) / 2;
-  const minSide = 8.0;
-  if (sideMargin < minSide) {
-    sideMargin = minSide;
-  }
+  final resolvedMessenger = messenger ?? ScaffoldMessenger.maybeOf(context);
+  if (resolvedMessenger == null) return;
 
   final resolved = isError ? AppDropSnackKind.error : kind;
-  final s = _styleForKind(resolved, colorScheme);
-  final bg = backgroundColor ?? s.background;
-  final fg = foregroundColor ?? s.foreground;
-  final snackIcon = icon ?? s.icon;
+  final style = _accentForKind(resolved, Theme.of(context).colorScheme);
+  final accent = backgroundColor ?? style.accent;
+  final snackIcon = icon ?? style.icon;
+  final resolvedAlignTop = alignTop ?? AppDropSnackBarScope.alignTopOf(context);
+  final resolvedProminent =
+      prominent ?? AppDropSnackBarScope.prominentOf(context);
+  final resolvedDuration = resolvedProminent && duration == _kCompactSnackDuration
+      ? const Duration(milliseconds: 2600)
+      : duration;
 
-  messenger.showSnackBar(
-    SnackBar(
-      behavior: SnackBarBehavior.floating,
-      margin: EdgeInsets.fromLTRB(sideMargin, 0, sideMargin, 20),
-      duration: duration,
-      elevation: 10,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      backgroundColor: bg,
-      // Unique key per SnackBar so Material's internal Hero tags never collide
-      // when replacing snack bars or during route transitions (see heroes.dart).
-      content: KeyedSubtree(
-        key: UniqueKey(),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(snackIcon, color: fg, size: 22),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-              ),
+  _presentCompactSnackBar(
+    resolvedMessenger,
+    message: message,
+    accent: accent,
+    icon: snackIcon,
+    duration: resolvedDuration,
+    clearExisting: clearExisting,
+    margin: _snackBarMargin(
+      context,
+      alignTop: resolvedAlignTop,
+      prominent: resolvedProminent,
+    ),
+    alignTop: resolvedAlignTop,
+    prominent: resolvedProminent,
+  );
+}
+
+/// Compact toast when a product is saved to wishlist (add only).
+void showAppDropWishlistAddedSnack(
+  BuildContext context, {
+  String message = 'Added to wishlist',
+  Color? accentColor,
+  Duration duration = _kCompactSnackDuration,
+  ScaffoldMessengerState? messenger,
+}) {
+  final resolvedMessenger =
+      messenger ?? ScaffoldMessenger.maybeOf(context);
+  if (resolvedMessenger == null) return;
+
+  triggerWishlistAddHaptic();
+
+  final accent = _wishlistAccentForSnack(context, accentColor);
+  final alignTop = AppDropSnackBarScope.alignTopOf(context);
+  final prominent = AppDropSnackBarScope.prominentOf(context);
+  final resolvedDuration = prominent && duration == _kCompactSnackDuration
+      ? const Duration(milliseconds: 2600)
+      : duration;
+  _presentCompactSnackBar(
+    resolvedMessenger,
+    message: message,
+    accent: accent,
+    icon: Icons.favorite_rounded,
+    duration: resolvedDuration,
+    clearExisting: true,
+    margin: _snackBarMargin(context, alignTop: alignTop, prominent: prominent),
+    alignTop: alignTop,
+    prominent: prominent,
+  );
+}
+
+class _CompactSnackBody extends StatelessWidget {
+  const _CompactSnackBody({
+    required this.message,
+    required this.accent,
+    required this.icon,
+    this.prominent = false,
+  });
+
+  final String message;
+  final Color accent;
+  final IconData icon;
+  final bool prominent;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.circular(prominent ? 12 : 10);
+    final iconSize = prominent ? 18.0 : 15.0;
+    final iconBox = prominent ? 32.0 : 26.0;
+    final accentFill = prominent ? 0.22 : 0.12;
+
+    return Align(
+      alignment: Alignment.center,
+      child: IntrinsicWidth(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: prominent ? const Color(0xFFFAFAFA) : Colors.white,
+            borderRadius: borderRadius,
+            border: Border.all(
+              color: prominent
+                  ? accent.withValues(alpha: 0.35)
+                  : const Color(0xFFE5E7EB),
+              width: prominent ? 1.4 : 1,
             ),
-          ],
+            boxShadow: prominent
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.18),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.14),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                      spreadRadius: -2,
+                    ),
+                  ],
+          ),
+          child: ClipRRect(
+            borderRadius: borderRadius,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (prominent)
+                  Container(width: 4, height: 52, color: accent),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: prominent ? 14 : 10,
+                    vertical: prominent ? 11 : 7,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: iconBox,
+                        height: iconBox,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: accentFill),
+                          shape: BoxShape.circle,
+                          border: prominent
+                              ? Border.all(
+                                  color: accent.withValues(alpha: 0.28),
+                                )
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(icon, color: accent, size: iconSize),
+                      ),
+                      SizedBox(width: prominent ? 10 : 8),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: const Color(0xFF0F172A),
+                          fontSize: prominent ? 14 : 13,
+                          fontWeight:
+                              prominent ? FontWeight.w700 : FontWeight.w600,
+                          height: 1.25,
+                          letterSpacing: prominent ? 0.1 : 0,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

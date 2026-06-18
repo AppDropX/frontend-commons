@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../pdp/pdp_overlay_metrics.dart';
+import '../pdp/pdp_page_chrome.dart';
 import '../theme/appdrop_theme_config.dart';
 import '../theme/appdrop_theme_scope.dart';
 
 import '../theme_library.dart';
 import 'appdrop_app_bar.dart';
+import 'appdrop_top_nav_swipe_body.dart';
 import 'appdrop_top_tabs.dart';
 import 'appdrop_side_menu.dart';
 import 'appdrop_bottom_nav.dart';
+import 'pdp_floating_chrome.dart';
 
 class AppDropScaffold extends StatefulWidget {
   /// your theme JSON (app_styling, bottom_bar, product_block, side_menu, top_navigation)
@@ -61,6 +65,15 @@ class AppDropScaffold extends StatefulWidget {
   /// `frontend_commons`.
   final WidgetRegistry? registry;
 
+  /// When true, hides [AppDropAppBar] and shows [PdpFloatingChrome] instead.
+  final bool hideAppBar;
+
+  /// When true, product grid title / view-all rows render (home page only).
+  final bool showProductGridHomeTitle;
+
+  /// Enables PDP staggered enter animations (image → title → price → …).
+  final bool enablePdpEnterAnimation;
+
   const AppDropScaffold({
     super.key,
     required this.themeJson,
@@ -87,6 +100,9 @@ class AppDropScaffold extends StatefulWidget {
     this.scaffoldKey,
     this.bodyOverride,
     this.registry,
+    this.hideAppBar = false,
+    this.showProductGridHomeTitle = false,
+    this.enablePdpEnterAnimation = false,
   });
 
   @override
@@ -96,6 +112,13 @@ class AppDropScaffold extends StatefulWidget {
 class _AppDropScaffoldState extends State<AppDropScaffold> {
   late int tabIndex;
   late int bottomIndex;
+
+  bool get _isBottomNavControlled => widget.onBottomNavTap != null;
+
+  int _sanitizeNavIndex(int index, int itemCount) {
+    if (itemCount <= 0) return 0;
+    return index.clamp(0, itemCount - 1);
+  }
 
   @override
   void initState() {
@@ -107,7 +130,8 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
   @override
   void didUpdateWidget(AppDropScaffold oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialBottomNavIndex != widget.initialBottomNavIndex) {
+    if (!_isBottomNavControlled &&
+        oldWidget.initialBottomNavIndex != widget.initialBottomNavIndex) {
       bottomIndex = widget.initialBottomNavIndex;
     }
     if (oldWidget.initialTopTabIndex != widget.initialTopTabIndex) {
@@ -127,7 +151,12 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
       final type = (map['type'] ?? '').toString();
       final scrollStyle =
           (map['scrollStyle'] ?? 'inline').toString().toLowerCase();
-      if (type == 'cta_button' && scrollStyle == 'fixed_at_bottom') {
+      final isFixed =
+          scrollStyle == 'fixed_at_bottom' &&
+          (type == 'cta_button' ||
+              type == 'product_block' ||
+              type == 'pdp_product_cta');
+      if (isFixed) {
         fixedBottomOut.add(Map<String, dynamic>.from(map));
       } else {
         inlineOut.add(item);
@@ -154,7 +183,13 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
     final bottomItems = cfg.bottomBar.items.where((e) => e.enabled).toList();
     final theme = AppDropThemeData.buildFromConfig(cfg); // ✅ add this
 
-    if (bottomIndex >= bottomItems.length) bottomIndex = 0;
+    final safeBottomIndex = _sanitizeNavIndex(
+      _isBottomNavControlled ? widget.initialBottomNavIndex : bottomIndex,
+      bottomItems.length,
+    );
+    if (!_isBottomNavControlled && bottomIndex != safeBottomIndex) {
+      bottomIndex = safeBottomIndex;
+    }
 
     final registry = widget.registry ?? WidgetRegistry.defaults();
     final onAction = widget.onAction != null
@@ -168,6 +203,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
         data: theme,
         child: Scaffold(
           key: widget.scaffoldKey,
+          extendBodyBehindAppBar: false,
           drawer: hasDrawer
               ? AppDropSideMenu(
                   styling: cfg.appStyling,
@@ -175,92 +211,236 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                   onItemTap: (item) => widget.onMenuItemTap?.call(item),
                 )
               : null,
-          appBar: AppDropAppBar(
-            toolbarHeight: widget.appbarHeight,
-            styling: cfg.appStyling,
-            title: widget.title,
-            showMenu: hasDrawer,
-            showCart: widget.pageToolbar == null,
-            onCartTap: widget.onCartTap,
-            cartBadgeCount: widget.cartBadgeCount,
-            pageToolbar: widget.pageToolbar,
-            hasDrawer: hasDrawer,
-            onBack: widget.onBack,
-            onWishlistTap: widget.onWishlistTap,
-            wishlistSelected: widget.wishlistSelected,
-            onSearchTap: widget.onSearchTap,
-          ),
+          appBar: widget.hideAppBar
+              ? null
+              : AppDropAppBar(
+                  toolbarHeight: widget.appbarHeight,
+                  styling: cfg.appStyling,
+                  title: widget.title,
+                  showMenu: hasDrawer,
+                  showCart: widget.pageToolbar == null,
+                  onCartTap: widget.onCartTap,
+                  cartBadgeCount: widget.cartBadgeCount,
+                  pageToolbar: widget.pageToolbar,
+                  hasDrawer: hasDrawer,
+                  onBack: widget.onBack,
+                  onWishlistTap: widget.onWishlistTap,
+                  wishlistSelected: widget.wishlistSelected,
+                  onSearchTap: widget.onSearchTap,
+                ),
           bottomNavigationBar: widget.showBottomNav
               ? AppDropBottomNav(
                   styling: cfg.appStyling,
                   config: cfg.bottomBar,
-                  currentIndex: bottomIndex,
+                  currentIndex: safeBottomIndex,
                   cartBadgeCount: widget.cartBadgeCount,
                   onTap: (i) {
-                    setState(() => bottomIndex = i);
+                    if (!_isBottomNavControlled) {
+                      setState(() => bottomIndex = i);
+                    }
                     if (i < bottomItems.length) {
                       widget.onBottomNavTap?.call(i, bottomItems[i]);
                     }
                   },
                 )
               : null,
-          body: Column(
-            children: [
-              if (widget.showTopTabs && topItems.isNotEmpty)
-                Transform.translate(
-                  offset: const Offset(0, -1),
-                  child: AppDropTopTabs(
-                    styling: cfg.appStyling,
-                    config: cfg.topNavigation,
-                    selectedIndex: safeTopTabIndex,
-                    onChanged: (i) {
-                      setState(() => tabIndex = i);
-                      widget.onTabChanged?.call(i, cfg.topNavigation.items[i]);
-                    },
+          body: widget.hideAppBar
+              ? SafeArea(
+                  child: _buildBodyStack(
+                    context: context,
+                    cfg: cfg,
+                    topItems: topItems,
+                    safeTopTabIndex: safeTopTabIndex,
+                    inlineNodes: inlineNodes,
+                    fixedBottomNodes: fixedBottomNodes,
+                    registry: registry,
+                    onAction: onAction,
+                    applyChromeSafeAreaTop: false,
                   ),
+                )
+              : _buildBodyStack(
+                  context: context,
+                  cfg: cfg,
+                  topItems: topItems,
+                  safeTopTabIndex: safeTopTabIndex,
+                  inlineNodes: inlineNodes,
+                  fixedBottomNodes: fixedBottomNodes,
+                  registry: registry,
+                  onAction: onAction,
+                  applyChromeSafeAreaTop: true,
                 ),
-              Expanded(
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBodyStack({
+    required BuildContext context,
+    required AppDropThemeConfig cfg,
+    required List<TopNavTabEntry> topItems,
+    required int safeTopTabIndex,
+    required List<WidgetNode> inlineNodes,
+    required List<WidgetNode> fixedBottomNodes,
+    required WidgetRegistry registry,
+    required AppDropActionHandler? onAction,
+    required bool applyChromeSafeAreaTop,
+  }) {
+    return Stack(
+      children: [
+        Column(
+          children: [
+            if (widget.showTopTabs && topItems.isNotEmpty)
+              Transform.translate(
+                offset: const Offset(0, -1),
+                child: AppDropTopTabs(
+                  styling: cfg.appStyling,
+                  config: cfg.topNavigation,
+                  selectedIndex: safeTopTabIndex,
+                  onChanged: (i) => _selectTopTab(i, topItems),
+                ),
+              ),
+            Expanded(
+              child: _wrapTopNavSwipeBody(
+                topItems: topItems,
+                safeTopTabIndex: safeTopTabIndex,
                 child: widget.bodyOverride ??
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: AppDropRenderer(
-                        nodes: inlineNodes,
-                        registry: registry,
-                        onAction: onAction,
-                        cartQuantityForProduct: widget.cartQuantityForProduct,
-                        wishlistContainsProduct: widget.wishlistContainsProduct,
-                      ),
+                    _buildScrollBody(
+                      context: context,
+                      inlineNodes: inlineNodes,
+                      registry: registry,
+                      onAction: onAction,
                     ),
               ),
-              if (widget.bodyOverride == null && fixedBottomNodes.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: AppDropRenderer(
+            ),
+            if (widget.bodyOverride == null && fixedBottomNodes.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(
+                  PdpOverlayMetrics.contentPadding,
+                  PdpOverlayMetrics.blockSpacing,
+                  PdpOverlayMetrics.contentPadding,
+                  PdpOverlayMetrics.contentPadding,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Builder(
+                  builder: (ctx) {
+                    final fixed = AppDropRenderer(
                       nodes: fixedBottomNodes,
                       registry: registry,
                       onAction: onAction,
                       cartQuantityForProduct: widget.cartQuantityForProduct,
                       wishlistContainsProduct: widget.wishlistContainsProduct,
-                    ),
-                  ),
+                      showProductGridHomeTitle:
+                          widget.showProductGridHomeTitle,
+                    );
+                    if (!widget.enablePdpEnterAnimation) return fixed;
+                    return PdpEnterAnimationScope(
+                      enabled: true,
+                      child: wrapPdpStagger(
+                        ctx,
+                        PdpStaggerSlot.addToCart,
+                        fixed,
+                      ),
+                    );
+                  },
                 ),
-            ],
-          ),
+                ),
+              ),
+          ],
         ),
-      ),
+        if (widget.hideAppBar)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Builder(
+              builder: (context) {
+                final chrome =
+                    PdpImageChromeSettings.fromPageJson(widget.pageJson);
+                return PdpFloatingChrome(
+                  onBack: widget.onBack,
+                  showWishlist: chrome.showWishlistButton,
+                  wishlistColor: chrome.wishlistColor,
+                  onWishlistTap: resolvePdpWishlistTap(
+                    context: context,
+                    hideAppBar: widget.hideAppBar,
+                    showWishlistButton: chrome.showWishlistButton,
+                    onAction: widget.onAction,
+                    onWishlistTap: widget.onWishlistTap,
+                  ),
+                  wishlistSelected: widget.wishlistSelected,
+                  applySafeAreaTop: applyChromeSafeAreaTop,
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _selectTopTab(int index, List<TopNavTabEntry> topItems) {
+    setState(() => tabIndex = index);
+    widget.onTabChanged?.call(index, topItems[index]);
+  }
+
+  Widget _wrapTopNavSwipeBody({
+    required List<TopNavTabEntry> topItems,
+    required int safeTopTabIndex,
+    required Widget child,
+  }) {
+    if (!widget.showTopTabs || topItems.length <= 1) return child;
+    return AppDropTopNavSwipeBody(
+      selectedIndex: safeTopTabIndex,
+      tabCount: topItems.length,
+      onSwipeToTab: (index) => _selectTopTab(index, topItems),
+      child: child,
+    );
+  }
+
+  Widget _buildScrollBody({
+    required BuildContext context,
+    required List<WidgetNode> inlineNodes,
+    required WidgetRegistry registry,
+    required AppDropActionHandler? onAction,
+  }) {
+    final scrollPadding = widget.hideAppBar
+        ? const EdgeInsets.only(bottom: PdpOverlayMetrics.contentPadding)
+        : const EdgeInsets.all(16);
+
+    final renderer = AppDropRenderer(
+      nodes: inlineNodes,
+      registry: registry,
+      onAction: onAction,
+      cartQuantityForProduct: widget.cartQuantityForProduct,
+      wishlistContainsProduct: widget.wishlistContainsProduct,
+      contentHorizontalPadding:
+          widget.hideAppBar ? PdpOverlayMetrics.contentPadding : null,
+      blockSpacing:
+          widget.hideAppBar ? PdpOverlayMetrics.blockSpacing : 12,
+      showProductGridHomeTitle: widget.showProductGridHomeTitle,
+    );
+
+    final body = widget.enablePdpEnterAnimation
+        ? PdpEnterAnimationScope(
+            enabled: true,
+            child: renderer,
+          )
+        : renderer;
+
+    return SingleChildScrollView(
+      padding: scrollPadding,
+      child: body,
     );
   }
 }

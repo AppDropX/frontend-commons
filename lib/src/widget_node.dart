@@ -95,12 +95,21 @@ class AppDropBuildEnv {
   final CartQuantityResolver? cartQuantityForProduct;
   final WishlistContainsResolver? wishlistContainsProduct;
 
+  /// When true, product grid title / view-all / collection heading rows render.
+  /// Home page only; other pages ignore those props even if saved in CMS data.
+  final bool showProductGridHomeTitle;
+
+  /// When false, storefront-only interactions (fullscreen gallery, cart actions) are disabled.
+  final bool interactiveFeaturesEnabled;
+
   AppDropBuildEnv({
     required this.r,
     required this.renderNode,
     this.onAction,
     this.cartQuantityForProduct,
     this.wishlistContainsProduct,
+    this.showProductGridHomeTitle = false,
+    this.interactiveFeaturesEnabled = true,
   });
 
   void dispatchAction(dynamic ctx, Map<String, dynamic> action) {

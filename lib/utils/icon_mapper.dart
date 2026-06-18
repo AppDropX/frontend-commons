@@ -43,3 +43,52 @@ IconData iconFromNameForNav(String name, bool selected) {
       return selected ? Icons.circle : Icons.circle_outlined;
   }
 }
+
+/// Material icon for in-app FAB `icon` field (snake_case API values).
+IconData fabIconFromName(String name) {
+  switch (name.trim().toLowerCase()) {
+    case 'shopping_cart':
+      return Icons.shopping_cart_outlined;
+    case 'delete':
+    case 'delete_outline':
+      return Icons.delete_outline_rounded;
+    case 'chat':
+    case 'chat_bubble':
+    case 'chat_bubble_outline':
+      return Icons.chat_bubble_outline_rounded;
+    case 'favorite':
+    case 'favorite_border':
+    case 'heart':
+      return Icons.favorite_border_rounded;
+    case 'support':
+    case 'support_agent':
+      return Icons.support_agent_outlined;
+    case 'local_offer':
+    case 'offer':
+      return Icons.local_offer_outlined;
+    case 'card_giftcard':
+    case 'gift':
+      return Icons.card_giftcard_outlined;
+    case 'help':
+    case 'help_outline':
+      return Icons.help_outline_rounded;
+    case 'link':
+      return Icons.link;
+    default:
+      return Icons.shopping_cart_outlined;
+  }
+}
+
+/// API snake_case name for a FAB picker [IconData].
+String fabIconToName(IconData icon) {
+  if (icon == Icons.delete_outline_rounded) return 'delete_outline';
+  if (icon == Icons.shopping_cart_outlined) return 'shopping_cart';
+  if (icon == Icons.chat_bubble_outline_rounded) return 'chat_bubble_outline';
+  if (icon == Icons.favorite_border_rounded) return 'favorite_border';
+  if (icon == Icons.support_agent_outlined) return 'support_agent';
+  if (icon == Icons.local_offer_outlined) return 'local_offer';
+  if (icon == Icons.card_giftcard_outlined) return 'card_giftcard';
+  if (icon == Icons.help_outline_rounded) return 'help_outline';
+  if (icon == Icons.link) return 'link';
+  return 'shopping_cart';
+}

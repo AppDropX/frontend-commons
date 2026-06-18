@@ -1,9 +1,17 @@
 import 'package:flutter/widgets.dart';
+import '../pdp/pdp_product_scope.dart';
 import '../theme_library.dart';
+import '../transitions/pdp_enter_animation.dart';
 import '../utils/color.dart';
 
 Widget buildTextWidget(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
-  final text = node.s('text', def: '');
+  final slot = pdpStaggerSlotFromString(node.s('pdpStaggerSlot', def: ''));
+  final pdpScope = slot == PdpStaggerSlot.price
+      ? PdpProductScope.maybeOf(context)
+      : null;
+  final text = pdpScope != null && pdpScope.formattedPriceLine.isNotEmpty
+      ? pdpScope.formattedPriceLine
+      : node.s('text', def: '');
   final size = node.d('sizeSp', def: 14);
   final weight = node.s('weight', def: 'regular').toLowerCase();
   final scope = AppDropThemeScope.maybeOf(context);
@@ -20,7 +28,7 @@ Widget buildTextWidget(BuildContext context, WidgetNode node, AppDropBuildEnv en
   final maxLines = node.i('maxLines', def: 0);
   final overflow = node.s('overflow', def: 'ellipsis').toLowerCase();
 
-  return Text(
+  Widget result = Text(
     text,
     textAlign: align,
     maxLines: maxLines <= 0 ? null : maxLines,
@@ -35,4 +43,9 @@ Widget buildTextWidget(BuildContext context, WidgetNode node, AppDropBuildEnv en
       color: color,
     ),
   );
+
+  if (slot != null) {
+    result = wrapPdpStagger(context, slot, result);
+  }
+  return result;
 }

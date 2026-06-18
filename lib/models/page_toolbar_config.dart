@@ -12,6 +12,9 @@ class PageToolbarConfig {
   /// Shown when [center] is [ToolbarCenter.text].
   final String centerText;
 
+  /// Image URL when [center] is [ToolbarCenter.logo].
+  final String centerLogoUrl;
+
   /// Trailing actions (inner → outer). Each: [ToolbarRight.none], [ToolbarRight.cart], etc.
   final String rightSlot1;
   final String rightSlot2;
@@ -20,6 +23,7 @@ class PageToolbarConfig {
     this.left = ToolbarLeft.sideNavigation,
     this.center = ToolbarCenter.text,
     this.centerText = 'Home',
+    this.centerLogoUrl = '',
     this.rightSlot1 = ToolbarRight.none,
     this.rightSlot2 = ToolbarRight.cart,
   });
@@ -58,10 +62,27 @@ class PageToolbarConfig {
     rightSlot2: ToolbarRight.none,
   );
 
+  static const PageToolbarConfig wishlistDefaults = PageToolbarConfig(
+    left: ToolbarLeft.back,
+    center: ToolbarCenter.text,
+    centerText: '',
+    rightSlot1: ToolbarRight.none,
+    rightSlot2: ToolbarRight.none,
+  );
+
+  static const PageToolbarConfig searchDefaults = PageToolbarConfig(
+    left: ToolbarLeft.back,
+    center: ToolbarCenter.text,
+    centerText: '',
+    rightSlot1: ToolbarRight.none,
+    rightSlot2: ToolbarRight.cart,
+  );
+
   PageToolbarConfig copyWith({
     String? left,
     String? center,
     String? centerText,
+    String? centerLogoUrl,
     String? rightSlot1,
     String? rightSlot2,
   }) {
@@ -69,6 +90,7 @@ class PageToolbarConfig {
       left: left ?? this.left,
       center: center ?? this.center,
       centerText: centerText ?? this.centerText,
+      centerLogoUrl: centerLogoUrl ?? this.centerLogoUrl,
       rightSlot1: rightSlot1 ?? this.rightSlot1,
       rightSlot2: rightSlot2 ?? this.rightSlot2,
     );
@@ -78,6 +100,7 @@ class PageToolbarConfig {
         'left': left,
         'center': center,
         'centerText': centerText,
+        'centerLogoUrl': centerLogoUrl,
         'rightSlot1': rightSlot1,
         'rightSlot2': rightSlot2,
       };
@@ -89,6 +112,7 @@ class PageToolbarConfig {
       left: json['left'] as String? ?? ToolbarLeft.sideNavigation,
       center: json['center'] as String? ?? ToolbarCenter.text,
       centerText: json['centerText'] as String? ?? 'Home',
+      centerLogoUrl: json['centerLogoUrl'] as String? ?? '',
       rightSlot1: json['rightSlot1'] as String? ?? ToolbarRight.none,
       rightSlot2: json['rightSlot2'] as String? ?? ToolbarRight.cart,
     );
@@ -106,12 +130,13 @@ class PageToolbarConfig {
           left == other.left &&
           center == other.center &&
           centerText == other.centerText &&
+          centerLogoUrl == other.centerLogoUrl &&
           rightSlot1 == other.rightSlot1 &&
           rightSlot2 == other.rightSlot2;
 
   @override
   int get hashCode =>
-      Object.hash(left, center, centerText, rightSlot1, rightSlot2);
+      Object.hash(left, center, centerText, centerLogoUrl, rightSlot1, rightSlot2);
 }
 
 abstract class ToolbarLeft {
@@ -121,6 +146,7 @@ abstract class ToolbarLeft {
 }
 
 abstract class ToolbarCenter {
+  static const none = 'none';
   static const text = 'text';
   static const logo = 'logo';
   static const collectionSearch = 'collection_search';

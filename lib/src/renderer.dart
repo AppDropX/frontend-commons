@@ -17,6 +17,7 @@ bool _shadowExcludedForWidgetType(String type) {
     case 'video':
     case 'image_slider':
     case 'product_grid':
+    case 'related_products':
     case 'product_description':
     case 'wishlist_item':
     case 'discount_code':
@@ -28,6 +29,11 @@ bool _shadowExcludedForWidgetType(String type) {
     case 'empty_cart':
     // Cart rows are list tiles; outer shadow on each row reads as a dirty border.
     case 'cart_item':
+    case 'product_variant':
+    case 'pdp_product_image':
+    case 'pdp_product_label':
+    case 'pdp_product_price':
+    case 'pdp_product_cta':
       return true;
     default:
       return false;
@@ -40,6 +46,7 @@ bool _shadowExcludedForWidget(WidgetNode node) {
   if (_shadowExcludedForWidgetType(node.type)) return true;
   final t = node.type.toLowerCase().trim();
   if (t == 'product_block' && node.b('embed_in_grid')) return true;
+  if (t == 'product_block' && node.b('embed_in_pdp')) return true;
   return false;
 }
 
@@ -73,6 +80,15 @@ class AppDropRenderer extends StatelessWidget {
   final CartQuantityResolver? cartQuantityForProduct;
   final WishlistContainsResolver? wishlistContainsProduct;
 
+  /// When set (e.g. PDP without app bar), inset blocks that are not full-bleed.
+  final double? contentHorizontalPadding;
+
+  /// Home-only product grid title / view-all header row.
+  final bool showProductGridHomeTitle;
+
+  /// When false, disables storefront-only tap behaviors in the theme builder preview.
+  final bool interactiveFeaturesEnabled;
+
   const AppDropRenderer({
     super.key,
     required this.nodes,
@@ -82,6 +98,9 @@ class AppDropRenderer extends StatelessWidget {
     this.blockSpacing = kDefaultBlockSpacing,
     this.cartQuantityForProduct,
     this.wishlistContainsProduct,
+    this.contentHorizontalPadding,
+    this.showProductGridHomeTitle = false,
+    this.interactiveFeaturesEnabled = true,
   });
 
   @override
@@ -104,6 +123,8 @@ class AppDropRenderer extends StatelessWidget {
             onAction: onAction,
             cartQuantityForProduct: cartQuantityForProduct,
             wishlistContainsProduct: wishlistContainsProduct,
+            showProductGridHomeTitle: showProductGridHomeTitle,
+            interactiveFeaturesEnabled: interactiveFeaturesEnabled,
           );
           if (builder == null) return const SizedBox.shrink();
           return _maybeApplyComponentShadow(node, builder(ctx, node, env));
@@ -114,7 +135,17 @@ class AppDropRenderer extends StatelessWidget {
           if (i > 0 && blockSpacing > 0) {
             children.add(SizedBox(height: blockSpacing));
           }
-          children.add(renderNode(context, nodes[i]));
+          var block = renderNode(context, nodes[i]);
+          final inset = contentHorizontalPadding;
+          if (inset != null &&
+              inset > 0 &&
+              !_usesFullBleedPdpBlock(nodes[i])) {
+            block = Padding(
+              padding: EdgeInsets.symmetric(horizontal: inset),
+              child: block,
+            );
+          }
+          children.add(block);
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,4 +154,8 @@ class AppDropRenderer extends StatelessWidget {
       },
     );
   }
+}
+
+bool _usesFullBleedPdpBlock(WidgetNode node) {
+  return node.type == 'product_block' && node.b('embed_in_pdp');
 }
