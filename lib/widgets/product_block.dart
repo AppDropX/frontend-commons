@@ -3,10 +3,12 @@ import '../features/rating_review_feature.dart';
 import '../pdp/pdp_product_scope.dart';
 import '../theme_library.dart';
 import '../transitions/pdp_enter_animation.dart';
+import '../utils/appdrop_snackbar.dart';
 import '../utils/color.dart';
 import '../utils/network_image_url.dart';
 import 'fullscreen_image_viewer.dart';
 import 'product_hero_image.dart';
+import 'product_image_placeholder.dart';
 import 'wishlist_heart_button.dart';
 
 /// Horizontal and below-image inset for product cards in [product_grid].
@@ -19,10 +21,10 @@ Widget buildProductBlock(
     BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   final cfg = AppDropThemeScope.maybeOf(context);
 
-  // Merge: theme.productBlock (defaults) <- node.props (override)
+  // Block instance data first; global theme product_block settings override.
   final merged = <String, dynamic>{};
-  if (cfg != null) merged.addAll(cfg.productBlock);
   merged.addAll(node.props);
+  if (cfg != null) merged.addAll(cfg.productBlock);
 
   bool b(String k, bool def) {
     final v = merged[k];
@@ -69,10 +71,13 @@ Widget buildProductBlock(
   final titleAlignIdx = i('title_text_alignment_index', 0);
 
   final radiusDp = d('corner_radius', 12);
-  final maxLines = i('max_lines', 2);
+  final maxLines = i('max_lines', 2).clamp(1, 3);
 
-  final imageBg =
-      parseHexColor(s('image_bg_color', '#E0E0E0')) ?? const Color(0xFFE0E0E0);
+  const imageBg = Color(0xFFE0E0E0);
+  final cardBg = parseHexColor(
+        s('card_bg_color', s('image_bg_color', '#FFFFFF')),
+      ) ??
+      Colors.white;
   final priceColor = parseHexColor(s('price_color', '#000000')) ?? Colors.black;
   final discountColor =
       parseHexColor(s('discount_color', '#FF0000')) ?? Colors.red;
@@ -137,7 +142,14 @@ Widget buildProductBlock(
   final align = _alignFromIndex(titleAlignIdx);
   final titleMaxLines =
       (titleBehaviorIdx == 1) ? 1 : (maxLines <= 0 ? null : maxLines);
-  final priceWeight = priceFont == 'bold' ? FontWeight.w700 : FontWeight.w400;
+  final priceWeight = _priceFontWeight(priceFont);
+  final fontFamily = cfg?.appStyling.fontFamily ?? 'Poppins';
+  final sellingPriceStyle = AppDropThemeData.textStyle(
+    fontFamily: fontFamily,
+    fontSize: env.r.sp(14),
+    fontWeight: priceWeight,
+    color: priceColor,
+  );
   final discountSp = _discountSp(discountSize, env.r);
 
   final incomingHeroTag =
@@ -206,7 +218,12 @@ Widget buildProductBlock(
             padding: EdgeInsets.all(env.r.dp(6)),
             onTap: wishlistAction == null
                 ? null
-                : () => env.dispatchAction(context, wishlistAction),
+                : () {
+                    if (!inWishlist) {
+                      triggerWishlistAddHaptic();
+                    }
+                    env.dispatchAction(context, wishlistAction);
+                  },
           ),
         ),
       ],
@@ -295,10 +312,7 @@ Widget buildProductBlock(
           children: [
             if (showSelling && sellingPrice > 0)
               Text('₹${sellingPrice.toStringAsFixed(0)}',
-                  style: TextStyle(
-                      fontSize: env.r.sp(14),
-                      fontWeight: priceWeight,
-                      color: priceColor)),
+                  style: sellingPriceStyle),
             if (showRetail && retailPrice > 0) ...[
               SizedBox(width: env.r.dp(8)),
               Text(
@@ -441,7 +455,7 @@ Widget buildProductBlock(
         showStrike: showStrike,
         showDiscount: showDiscount,
         discountPercent: discountPercent,
-        priceWeight: priceWeight,
+        sellingPriceStyle: sellingPriceStyle,
         priceColor: priceColor,
         discountSp: discountSp,
         discountColor: discountColor,
@@ -453,7 +467,7 @@ Widget buildProductBlock(
     final staggeredDetails = ClipRRect(
       borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
       child: DecoratedBox(
-        decoration: const BoxDecoration(color: Colors.white),
+        decoration: BoxDecoration(color: cardBg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -493,7 +507,7 @@ Widget buildProductBlock(
   Widget card = ClipRRect(
     borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
     child: DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.white),
+      decoration: BoxDecoration(color: cardBg),
       child: body,
     ),
   );
@@ -616,7 +630,10 @@ class _PdpProductImageCarouselState extends State<_PdpProductImageCarousel> {
                         child: Image.network(
                           widget.images[i],
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const SizedBox.expand(),
+                          errorBuilder: (_, __, ___) =>
+                              ProductImagePlaceholder(
+                            backgroundColor: widget.imageBg,
+                          ),
                         ),
                       ),
                     );
@@ -698,6 +715,20 @@ double _discountSp(String size, dynamic r) {
   if (size == 'large') return r.sp(14, min: 12, max: 16);
   if (size == 'medium') return r.sp(12, min: 10, max: 14);
   return r.sp(10, min: 9, max: 12);
+}
+
+FontWeight _priceFontWeight(String raw) {
+  final normalized =
+      raw.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  switch (normalized) {
+    case 'bold':
+      return FontWeight.w700;
+    case 'semibold':
+      return FontWeight.w600;
+    case 'regular':
+    default:
+      return FontWeight.w400;
+  }
 }
 
 double _toDouble(dynamic v) {
@@ -825,7 +856,7 @@ Widget _pdpPriceSection({
   required bool showStrike,
   required bool showDiscount,
   required int discountPercent,
-  required FontWeight priceWeight,
+  required TextStyle sellingPriceStyle,
   required Color priceColor,
   required double discountSp,
   required Color discountColor,
@@ -849,11 +880,7 @@ Widget _pdpPriceSection({
             if (showSelling && sellingPrice > 0)
               Text(
                 '₹${sellingPrice.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: env.r.sp(14),
-                  fontWeight: priceWeight,
-                  color: priceColor,
-                ),
+                style: sellingPriceStyle,
               ),
             if (showRetail && retailPrice > 0) ...[
               SizedBox(width: env.r.dp(8)),

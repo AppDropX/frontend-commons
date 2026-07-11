@@ -13,6 +13,34 @@ const List<String> kSupportedAppStylingFontFamilies = [
 ];
 
 class AppDropThemeData {
+  static TextStyle textStyle({
+    required String fontFamily,
+    required double fontSize,
+    required FontWeight fontWeight,
+    Color? color,
+  }) {
+    final family = fontFamily.trim();
+    final style = TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+    );
+    switch (family) {
+      case 'Inter':
+        return GoogleFonts.inter(textStyle: style);
+      case 'Roboto':
+        return GoogleFonts.roboto(textStyle: style);
+      case 'Open Sans':
+      case 'OpenSans':
+        return GoogleFonts.openSans(textStyle: style);
+      case 'Lato':
+        return GoogleFonts.lato(textStyle: style);
+      case 'Poppins':
+      default:
+        return GoogleFonts.poppins(textStyle: style);
+    }
+  }
+
   static ThemeData buildFromConfig(AppDropThemeConfig cfg) {
     final font = cfg.appStyling.fontFamily.trim();
     final content = cfg.appStyling.fontIconColor;

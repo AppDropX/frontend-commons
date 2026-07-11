@@ -5,6 +5,7 @@ import '../theme_library.dart';
 import '../utils/color.dart';
 import '../utils/network_image_url.dart';
 import 'fullscreen_image_viewer.dart';
+import 'product_image_placeholder.dart';
 
 Widget buildPdpProductImageBlock(
   BuildContext context,
@@ -15,7 +16,6 @@ Widget buildPdpProductImageBlock(
   final product = _effectiveProduct(context, node);
   final imageUrl = sanitizedNetworkImageUrl((product['imageUrl'] ?? '').toString());
   final images = _productImages(product, imageUrl);
-  if (images.isEmpty) return const SizedBox.shrink();
 
   final aspect = _aspectFromIndex(node.i('aspect_ratio_index', def: 0));
   final indicatorColor = parseHexColor(
@@ -32,23 +32,28 @@ Widget buildPdpProductImageBlock(
     return (product['heroTag']?.toString() ?? '').trim();
   }();
 
-  Widget image = Stack(
-    children: [
-      AspectRatio(
-        aspectRatio: aspect,
-        child: _ImagePager(
-          images: images,
-          indicatorColor: indicatorColor,
-          interactiveEnabled: env.interactiveFeaturesEnabled,
+  Widget image = images.isEmpty
+      ? AspectRatio(
           aspectRatio: aspect,
-          imageBg: imageBg,
-          imageRadius: imageRadius,
-          productId: productId,
-          heroTag: heroTag,
-        ),
-      ),
-    ],
-  );
+          child: ProductImagePlaceholder(backgroundColor: imageBg),
+        )
+      : Stack(
+          children: [
+            AspectRatio(
+              aspectRatio: aspect,
+              child: _ImagePager(
+                images: images,
+                indicatorColor: indicatorColor,
+                interactiveEnabled: env.interactiveFeaturesEnabled,
+                aspectRatio: aspect,
+                imageBg: imageBg,
+                imageRadius: imageRadius,
+                productId: productId,
+                heroTag: heroTag,
+              ),
+            ),
+          ],
+        );
 
   image = ClipRRect(
     borderRadius: BorderRadius.circular(env.r.dp(12)),
@@ -161,7 +166,8 @@ class _ImagePagerState extends State<_ImagePager> {
               image = Image.network(
                 widget.images[i],
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.expand(),
+                errorBuilder: (_, __, ___) =>
+                    ProductImagePlaceholder(backgroundColor: widget.imageBg),
               );
             }
             if (!widget.interactiveEnabled) return image;

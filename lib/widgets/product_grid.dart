@@ -62,6 +62,12 @@ Widget _buildProductGridTile({
   required bool horizontalRow,
 }) {
   final addToCartTextColor = addToCartCtaFontColor;
+  final pb = AppDropThemeScope.maybeOf(context)?.productBlock ??
+      const <String, dynamic>{};
+  final cardBg = parseHexColor(
+        (pb['card_bg_color'] ?? pb['image_bg_color'] ?? '#FFFFFF').toString(),
+      ) ??
+      Colors.white;
 
   final Map<String, dynamic>? gridAction = () {
     final a = item['action'];
@@ -136,9 +142,7 @@ Widget _buildProductGridTile({
       child: ClipRRect(
         borderRadius: radiusPx,
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-          ),
+          decoration: BoxDecoration(color: cardBg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

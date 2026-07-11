@@ -115,14 +115,19 @@ _SnackAccent _accentForKind(AppDropSnackKind kind, ColorScheme cs) {
 }
 
 DateTime? _lastWishlistHapticAt;
+bool? _cachedHasVibrator;
+bool? _cachedHasAmplitudeControl;
+
+/// Pre-warm vibrator capability checks so the first wishlist tap feels instant.
+void warmUpWishlistHaptic() {
+  if (kIsWeb) return;
+  unawaited(_ensureWishlistVibratorCache());
+}
 
 /// Device vibration + haptic when a product is saved to wishlist.
 void triggerWishlistAddHaptic() {
   if (kIsWeb) return;
-  unawaited(_runWishlistAddHaptic());
-}
 
-Future<void> _runWishlistAddHaptic() async {
   final now = DateTime.now();
   if (_lastWishlistHapticAt != null &&
       now.difference(_lastWishlistHapticAt!) <
@@ -132,24 +137,36 @@ Future<void> _runWishlistAddHaptic() async {
   _lastWishlistHapticAt = now;
 
   try {
-    await HapticFeedback.heavyImpact();
-    final hasVibrator = await Vibration.hasVibrator();
-    if (hasVibrator == true) {
-      const durationMs = 90;
-      final hasAmplitude = await Vibration.hasAmplitudeControl();
-      if (hasAmplitude == true) {
-        await Vibration.vibrate(duration: durationMs, amplitude: 200);
-      } else {
-        await Vibration.vibrate(duration: durationMs);
-      }
-      return;
+    HapticFeedback.heavyImpact();
+  } catch (_) {}
+
+  unawaited(_pulseWishlistVibration());
+}
+
+Future<void> _ensureWishlistVibratorCache() async {
+  if (_cachedHasVibrator != null) return;
+  try {
+    _cachedHasVibrator = await Vibration.hasVibrator();
+    if (_cachedHasVibrator == true) {
+      _cachedHasAmplitudeControl = await Vibration.hasAmplitudeControl();
     }
-    await HapticFeedback.heavyImpact();
   } catch (_) {
-    try {
-      await HapticFeedback.heavyImpact();
-    } catch (_) {}
+    _cachedHasVibrator = false;
   }
+}
+
+Future<void> _pulseWishlistVibration() async {
+  try {
+    await _ensureWishlistVibratorCache();
+    if (_cachedHasVibrator != true) return;
+
+    const durationMs = 90;
+    if (_cachedHasAmplitudeControl == true) {
+      await Vibration.vibrate(duration: durationMs, amplitude: 200);
+    } else {
+      await Vibration.vibrate(duration: durationMs);
+    }
+  } catch (_) {}
 }
 
 Color _wishlistAccentForSnack(BuildContext context, Color? override) {
