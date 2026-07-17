@@ -25,6 +25,11 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool wishlistSelected;
   final VoidCallback? onSearchTap;
 
+  /// When the app runs inside the builder iPhone frame, pass
+  /// [Iphone15ProPreview.safeTop] so the toolbar row sits below the painted
+  /// status bar instead of vertically centering in a combined height.
+  final double statusBarInset;
+
   const AppDropAppBar({
     super.key,
     required this.toolbarHeight,
@@ -40,9 +45,11 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onWishlistTap,
     this.wishlistSelected = false,
     this.onSearchTap,
+    this.statusBarInset = 0,
   });
 
-  double get _h => toolbarHeight;
+  double get _toolbarContentHeight => toolbarHeight;
+  double get _h => _toolbarContentHeight + statusBarInset;
   @override
   Size get preferredSize => Size.fromHeight(_h);
 
@@ -98,7 +105,7 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (url == null) {
           return const SizedBox.shrink();
         }
-        final logoHeight = (_h * 0.52).clamp(28.0, 44.0);
+        final logoHeight = (_toolbarContentHeight * 0.52).clamp(28.0, 44.0);
         return SizedBox(
           height: logoHeight,
           child: Image.network(
@@ -243,11 +250,12 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
     final useToolbar = pt != null;
     final leading = _leading(context);
     final actions = _actions();
-    return AppBar(
+    final appBar = AppBar(
       elevation: 0,
       shadowColor: Colors.transparent,
       scrolledUnderElevation: 0,
-      toolbarHeight: _h,
+      primary: statusBarInset <= 0,
+      toolbarHeight: _toolbarContentHeight,
       surfaceTintColor: styling.toolbarBg,
       backgroundColor: styling.toolbarBg,
       foregroundColor: styling.toolbarFont,
@@ -256,6 +264,19 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
       automaticallyImplyLeading: !useToolbar && showMenu,
       title: _titleWidget(),
       actions: actions,
+    );
+
+    if (statusBarInset <= 0) return appBar;
+
+    return ColoredBox(
+      color: styling.toolbarBg,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: statusBarInset),
+          appBar,
+        ],
+      ),
     );
   }
 }

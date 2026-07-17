@@ -31,6 +31,7 @@ export 'product/product_variant_model.dart';
 export 'features/rating_review_feature.dart';
 export 'cart/product_add_to_cart_flow.dart';
 export 'custom_block/embedded_custom_block_metrics.dart';
+export 'custom_block/custom_block_html_document.dart';
 export 'widgets/product_hero_image.dart';
 export 'widgets/product_image_placeholder.dart';
 export 'widgets/product_selection_bottom_sheet.dart';

@@ -23,6 +23,7 @@ bool _shadowExcludedForWidgetType(String type) {
     case 'discount_code':
     case 'cta_button':
     case 'sort_filter':
+    case 'custom_block':
       return true;
     // Full-bleed cart / wishlist empty state: renderer shadow wraps a tall [SizedBox],
     // producing a heavy edge vignette — no per-block elevation needed.
@@ -157,5 +158,17 @@ class AppDropRenderer extends StatelessWidget {
 }
 
 bool _usesFullBleedPdpBlock(WidgetNode node) {
-  return node.type == 'product_block' && node.b('embed_in_pdp');
+  final type = node.type.toLowerCase().trim();
+  if (type == 'product_block' && node.b('embed_in_pdp')) return true;
+  // Edge-to-edge under app bar / top tabs (no page-level horizontal inset).
+  switch (type) {
+    case 'custom_block':
+    case 'image_banner':
+    case 'carousel':
+    case 'image_slider':
+    case 'video':
+      return true;
+    default:
+      return false;
+  }
 }

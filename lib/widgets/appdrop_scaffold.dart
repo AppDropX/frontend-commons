@@ -289,7 +289,9 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
       children: [
         Column(
           children: [
-            if (widget.showTopTabs && topItems.isNotEmpty)
+            if (widget.showTopTabs &&
+                cfg.topNavigation.enabled &&
+                topItems.isNotEmpty)
               Transform.translate(
                 offset: const Offset(0, -1),
                 child: AppDropTopTabs(
@@ -301,6 +303,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
               ),
             Expanded(
               child: _wrapTopNavSwipeBody(
+                topNavEnabled: cfg.topNavigation.enabled,
                 topItems: topItems,
                 safeTopTabIndex: safeTopTabIndex,
                 child: widget.bodyOverride ??
@@ -395,11 +398,14 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
   }
 
   Widget _wrapTopNavSwipeBody({
+    required bool topNavEnabled,
     required List<TopNavTabEntry> topItems,
     required int safeTopTabIndex,
     required Widget child,
   }) {
-    if (!widget.showTopTabs || topItems.length <= 1) return child;
+    if (!widget.showTopTabs || !topNavEnabled || topItems.length <= 1) {
+      return child;
+    }
     return AppDropTopNavSwipeBody(
       selectedIndex: safeTopTabIndex,
       tabCount: topItems.length,
@@ -414,9 +420,11 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
     required WidgetRegistry registry,
     required AppDropActionHandler? onAction,
   }) {
+    // Even page inset on every side (top == left == right == bottom).
+    const pageInset = 8.0;
     final scrollPadding = widget.hideAppBar
         ? const EdgeInsets.only(bottom: PdpOverlayMetrics.contentPadding)
-        : const EdgeInsets.all(16);
+        : const EdgeInsets.all(pageInset);
 
     final renderer = AppDropRenderer(
       nodes: inlineNodes,
@@ -424,6 +432,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
       onAction: onAction,
       cartQuantityForProduct: widget.cartQuantityForProduct,
       wishlistContainsProduct: widget.wishlistContainsProduct,
+      // Horizontal inset comes from [scrollPadding] so all sides match.
       contentHorizontalPadding:
           widget.hideAppBar ? PdpOverlayMetrics.contentPadding : null,
       blockSpacing:
@@ -438,9 +447,15 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
           )
         : renderer;
 
-    return SingleChildScrollView(
-      padding: scrollPadding,
-      child: body,
+    // Scaffold can leave residual top MediaQuery padding under the app bar /
+    // top tabs on some platforms — strip it so only [scrollPadding] applies.
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      child: SingleChildScrollView(
+        padding: scrollPadding,
+        child: body,
+      ),
     );
   }
 }
