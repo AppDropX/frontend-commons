@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
@@ -52,17 +54,36 @@ EdgeInsets _snackBarMargin(
   required bool alignTop,
   bool prominent = false,
 }) {
+  const horizontal = 16.0;
+  const gap = 12.0;
+
   if (!alignTop) {
-    return const EdgeInsets.fromLTRB(16, 0, 16, 12);
+    return const EdgeInsets.fromLTRB(horizontal, 0, horizontal, gap);
   }
-  final size = MediaQuery.sizeOf(context);
-  final topInset = MediaQuery.paddingOf(context).top;
+
+  final media = MediaQuery.of(context);
+  final topInset = media.padding.top;
   final estimatedSnackHeight = prominent ? 54.0 : 44.0;
-  return EdgeInsets.only(
-    left: 16,
-    right: 16,
-    bottom: size.height - topInset - estimatedSnackHeight - 12,
+
+  // Floating snack bars sit in the band above [bottomNavigationBar]. Top alignment
+  // uses a large bottom margin — it must be relative to that band, not the full
+  // screen, or the pill renders off-screen in the iPhone preview (330×690).
+  final scaffold = Scaffold.maybeOf(context);
+  final appBarHeight = scaffold?.appBarMaxHeight ?? 0.0;
+  final topChrome = appBarHeight > 0 ? appBarHeight : math.max(topInset + 44, 52);
+  final bottomChrome = media.padding.bottom + kBottomNavigationBarHeight;
+
+  final snackBandHeight = math.max(
+    estimatedSnackHeight + gap * 2,
+    media.size.height - topChrome - bottomChrome,
   );
+
+  final bottomMargin = (snackBandHeight - estimatedSnackHeight - gap).clamp(
+    gap,
+    snackBandHeight - estimatedSnackHeight,
+  );
+
+  return EdgeInsets.fromLTRB(horizontal, 0, horizontal, bottomMargin);
 }
 
 /// Visual category for [showAppDropSnackBar].
@@ -87,29 +108,29 @@ _SnackAccent _accentForKind(AppDropSnackKind kind, ColorScheme cs) {
     case AppDropSnackKind.success:
       return const _SnackAccent(
         accent: Color(0xFF16A34A),
-        icon: Icons.check_circle_rounded,
+        icon: FluentIcons.checkmark_circle_20_regular,
       );
     case AppDropSnackKind.error:
-      return _SnackAccent(accent: cs.error, icon: Icons.error_rounded);
+      return _SnackAccent(accent: cs.error, icon: FluentIcons.error_circle_20_regular);
     case AppDropSnackKind.removed:
       return const _SnackAccent(
         accent: Color(0xFFDC2626),
-        icon: Icons.delete_outline_rounded,
+        icon: FluentIcons.delete_20_regular,
       );
     case AppDropSnackKind.warning:
       return const _SnackAccent(
         accent: Color(0xFFD97706),
-        icon: Icons.warning_rounded,
+        icon: FluentIcons.warning_20_regular,
       );
     case AppDropSnackKind.info:
       return const _SnackAccent(
         accent: Color(0xFF2563EB),
-        icon: Icons.info_rounded,
+        icon: FluentIcons.info_20_regular,
       );
     case AppDropSnackKind.neutral:
       return const _SnackAccent(
         accent: Color(0xFF374151),
-        icon: Icons.notifications_none_rounded,
+        icon: FluentIcons.alert_20_regular,
       );
   }
 }
@@ -291,7 +312,7 @@ void showAppDropWishlistAddedSnack(
     resolvedMessenger,
     message: message,
     accent: accent,
-    icon: Icons.favorite_rounded,
+    icon: FluentIcons.heart_20_filled,
     duration: resolvedDuration,
     clearExisting: true,
     margin: _snackBarMargin(context, alignTop: alignTop, prominent: prominent),

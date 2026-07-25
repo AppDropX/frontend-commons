@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/appdrop_snackbar.dart';
@@ -108,7 +109,7 @@ class _CartItemWidget extends StatelessWidget {
               color: Colors.grey.shade200,
               child: imageUrl == null
                   ? Icon(
-                      Icons.image_not_supported,
+                      FluentIcons.image_off_20_regular,
                       size: r.dp(32),
                       color: Colors.grey.shade400,
                     )
@@ -118,7 +119,7 @@ class _CartItemWidget extends StatelessWidget {
                       width: imageSize,
                       height: imageSize,
                       errorBuilder: (_, __, ___) => Icon(
-                        Icons.image_not_supported,
+                        FluentIcons.image_off_20_regular,
                         size: r.dp(32),
                         color: Colors.grey.shade400,
                       ),
@@ -271,7 +272,7 @@ class _CartQtyStepper extends StatelessWidget {
                   horizontal: r.dp(8),
                   vertical: r.dp(6),
                 ),
-                child: Icon(Icons.remove, size: r.dp(18), color: accentColor),
+                child: Icon(FluentIcons.subtract_20_regular, size: r.dp(18), color: accentColor),
               ),
             ),
             ConstrainedBox(
@@ -296,7 +297,7 @@ class _CartQtyStepper extends StatelessWidget {
                   horizontal: r.dp(8),
                   vertical: r.dp(6),
                 ),
-                child: Icon(Icons.add, size: r.dp(18), color: accentColor),
+                child: Icon(FluentIcons.add_20_regular, size: r.dp(18), color: accentColor),
               ),
             ),
           ],

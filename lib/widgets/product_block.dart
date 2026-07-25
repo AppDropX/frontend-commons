@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../features/rating_review_feature.dart';
 import '../pdp/pdp_product_scope.dart';
@@ -284,7 +285,7 @@ Widget buildProductBlock(
             child: Row(
               mainAxisAlignment: _main(align),
               children: [
-                Icon(Icons.star, size: env.r.dp(16), color: ratingColor),
+                Icon(FluentIcons.star_20_filled, size: env.r.dp(16), color: ratingColor),
                 SizedBox(width: env.r.dp(4)),
                 Text(
                   rating.toStringAsFixed(1),
@@ -313,7 +314,7 @@ Widget buildProductBlock(
             if (showSelling && sellingPrice > 0)
               Text('₹${sellingPrice.toStringAsFixed(0)}',
                   style: sellingPriceStyle),
-            if (showRetail && retailPrice > 0) ...[
+            if (showRetail && retailPrice > sellingPrice) ...[
               SizedBox(width: env.r.dp(8)),
               Text(
                 '₹${retailPrice.toStringAsFixed(0)}',
@@ -817,7 +818,7 @@ Widget _pdpTitleSection({
           Row(
             mainAxisAlignment: _main(align),
             children: [
-              Icon(Icons.star, size: env.r.dp(16), color: ratingColor),
+              Icon(FluentIcons.star_20_filled, size: env.r.dp(16), color: ratingColor),
               SizedBox(width: env.r.dp(4)),
               Text(
                 rating.toStringAsFixed(1),
@@ -882,7 +883,7 @@ Widget _pdpPriceSection({
                 '₹${sellingPrice.toStringAsFixed(0)}',
                 style: sellingPriceStyle,
               ),
-            if (showRetail && retailPrice > 0) ...[
+            if (showRetail && retailPrice > sellingPrice) ...[
               SizedBox(width: env.r.dp(8)),
               Text(
                 '₹${retailPrice.toStringAsFixed(0)}',

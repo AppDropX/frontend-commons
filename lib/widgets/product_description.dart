@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../theme_library.dart';
@@ -194,7 +195,7 @@ class _ProductDescriptionWidgetState extends State<_ProductDescriptionWidget>
                             ),
                           ),
                           child: Icon(
-                            Icons.keyboard_arrow_down_rounded,
+                            FluentIcons.chevron_down_20_regular,
                             size: widget.r.dp(22),
                             color: widget.titleColor.withValues(alpha: 0.72),
                           ),

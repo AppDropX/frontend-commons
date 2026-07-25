@@ -1,94 +1,97 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
 IconData iconFromName(String name) {
   return iconFromNameForNav(name, false);
 }
 
-/// Returns icon for bottom nav: filled when [selected], outlined when not.
+/// Returns icon for bottom nav: filled when [selected], regular when not.
 IconData iconFromNameForNav(String name, bool selected) {
   switch (name) {
     case 'home':
     case 'home_outlined':
-      return selected ? Icons.home : Icons.home_outlined;
+      return selected ? FluentIcons.home_20_filled : FluentIcons.home_20_regular;
     case 'grid_view':
     case 'collections':
-      return selected ? Icons.grid_view : Icons.grid_view_outlined;
+      return selected ? FluentIcons.grid_20_filled : FluentIcons.grid_20_regular;
     case 'favorite_border':
     case 'heart':
-      return Icons.favorite_border;
+      return selected ? FluentIcons.heart_20_filled : FluentIcons.heart_20_regular;
     case 'shopping_cart_outlined':
     case 'cart':
-      return selected ? Icons.shopping_cart : Icons.shopping_cart_outlined;
+      return selected ? FluentIcons.cart_20_filled : FluentIcons.cart_20_regular;
     case 'person_outline':
     case 'account':
     case 'user':
-      return selected ? Icons.person : Icons.person_outline;
+      return selected ? FluentIcons.person_20_filled : FluentIcons.person_20_regular;
     case 'search':
-      return Icons.search;
+      return FluentIcons.search_20_regular;
     case 'bell':
     case 'notifications_none':
-      return selected ? Icons.notifications : Icons.notifications_none;
+      return selected ? FluentIcons.alert_20_filled : FluentIcons.alert_20_regular;
     case 'bag':
     case 'shopping_bag_outlined':
-      return selected ? Icons.shopping_bag : Icons.shopping_bag_outlined;
+      return selected
+          ? FluentIcons.shopping_bag_20_filled
+          : FluentIcons.shopping_bag_20_regular;
     case 'star':
     case 'star_border':
-      return selected ? Icons.star : Icons.star_border;
+      return selected ? FluentIcons.star_20_filled : FluentIcons.star_20_regular;
     case 'menu':
-      return Icons.menu;
+      return FluentIcons.navigation_20_regular;
     case 'arrow_back':
     case 'back':
-      return Icons.arrow_back_ios_new;
+      return FluentIcons.chevron_left_20_regular;
     default:
-      return selected ? Icons.circle : Icons.circle_outlined;
+      return selected ? FluentIcons.circle_20_filled : FluentIcons.circle_20_regular;
   }
 }
 
-/// Material icon for in-app FAB `icon` field (snake_case API values).
+/// Fluent icon for in-app FAB `icon` field (snake_case API values).
 IconData fabIconFromName(String name) {
   switch (name.trim().toLowerCase()) {
     case 'shopping_cart':
-      return Icons.shopping_cart_outlined;
+      return FluentIcons.cart_20_regular;
     case 'delete':
     case 'delete_outline':
-      return Icons.delete_outline_rounded;
+      return FluentIcons.delete_20_regular;
     case 'chat':
     case 'chat_bubble':
     case 'chat_bubble_outline':
-      return Icons.chat_bubble_outline_rounded;
+      return FluentIcons.chat_20_regular;
     case 'favorite':
     case 'favorite_border':
     case 'heart':
-      return Icons.favorite_border_rounded;
+      return FluentIcons.heart_20_regular;
     case 'support':
     case 'support_agent':
-      return Icons.support_agent_outlined;
+      return FluentIcons.headset_20_regular;
     case 'local_offer':
     case 'offer':
-      return Icons.local_offer_outlined;
+      return FluentIcons.tag_20_regular;
     case 'card_giftcard':
     case 'gift':
-      return Icons.card_giftcard_outlined;
+      return FluentIcons.gift_20_regular;
     case 'help':
     case 'help_outline':
-      return Icons.help_outline_rounded;
+      return FluentIcons.question_circle_20_regular;
     case 'link':
-      return Icons.link;
+      return FluentIcons.link_20_regular;
     default:
-      return Icons.shopping_cart_outlined;
+      return FluentIcons.cart_20_regular;
   }
 }
 
 /// API snake_case name for a FAB picker [IconData].
 String fabIconToName(IconData icon) {
-  if (icon == Icons.delete_outline_rounded) return 'delete_outline';
-  if (icon == Icons.shopping_cart_outlined) return 'shopping_cart';
-  if (icon == Icons.chat_bubble_outline_rounded) return 'chat_bubble_outline';
-  if (icon == Icons.favorite_border_rounded) return 'favorite_border';
-  if (icon == Icons.support_agent_outlined) return 'support_agent';
-  if (icon == Icons.local_offer_outlined) return 'local_offer';
-  if (icon == Icons.card_giftcard_outlined) return 'card_giftcard';
-  if (icon == Icons.help_outline_rounded) return 'help_outline';
-  if (icon == Icons.link) return 'link';
+  if (icon == FluentIcons.delete_20_regular) return 'delete_outline';
+  if (icon == FluentIcons.cart_20_regular) return 'shopping_cart';
+  if (icon == FluentIcons.chat_20_regular) return 'chat_bubble_outline';
+  if (icon == FluentIcons.heart_20_regular) return 'favorite_border';
+  if (icon == FluentIcons.headset_20_regular) return 'support_agent';
+  if (icon == FluentIcons.tag_20_regular) return 'local_offer';
+  if (icon == FluentIcons.gift_20_regular) return 'card_giftcard';
+  if (icon == FluentIcons.question_circle_20_regular) return 'help_outline';
+  if (icon == FluentIcons.link_20_regular) return 'link';
   return 'shopping_cart';
 }

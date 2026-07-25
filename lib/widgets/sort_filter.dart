@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
@@ -161,7 +162,7 @@ class _SortFilterWidgetState extends State<_SortFilterWidget> {
                         value: _selectedSortIndex.clamp(0, widget.sortOptions.length - 1),
                         isExpanded: true,
                         isDense: true,
-                        icon: Icon(Icons.keyboard_arrow_down, color: widget.optionTextColor, size: widget.r.dp(18)),
+                        icon: Icon(FluentIcons.chevron_down_20_regular, color: widget.optionTextColor, size: widget.r.dp(18)),
                         style: TextStyle(color: widget.optionTextColor, fontSize: widget.r.sp(14, min: 12, max: 16)),
                         items: List.generate(
                           widget.sortOptions.length,
@@ -193,7 +194,7 @@ class _SortFilterWidgetState extends State<_SortFilterWidget> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.tune, size: widget.r.dp(18), color: widget.filterButtonFontColor),
+                      Icon(FluentIcons.arrow_sort_20_regular, size: widget.r.dp(18), color: widget.filterButtonFontColor),
                       SizedBox(width: widget.r.dp(6)),
                       Text(
                         widget.filterLabel.isEmpty ? 'Filter' : widget.filterLabel,

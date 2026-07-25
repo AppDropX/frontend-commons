@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../theme_library.dart';
@@ -42,7 +43,7 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
             child: Container(
               color: bg,
               child: const Center(
-                child: Icon(Icons.videocam_off, size: 48, color: Colors.white54),
+                child: Icon(FluentIcons.video_off_20_regular, size: 48, color: Colors.white54),
               ),
             ),
           ),
@@ -154,7 +155,7 @@ class _VideoPlayerState extends State<_VideoPlayer> {
       return Container(
         color: widget.bgColor,
         child: const Center(
-          child: Icon(Icons.error_outline, size: 48, color: Colors.white54),
+          child: Icon(FluentIcons.error_circle_20_regular, size: 48, color: Colors.white54),
         ),
       );
     }
@@ -194,7 +195,7 @@ class _VideoPlayerState extends State<_VideoPlayer> {
             child: IconButton(
               onPressed: toggle,
               icon: Icon(
-                _controller!.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                _controller!.value.isPlaying ? FluentIcons.pause_20_regular : FluentIcons.play_20_regular,
                 color: Colors.white,
                 size: 28,
               ),
@@ -209,7 +210,7 @@ class _VideoPlayerState extends State<_VideoPlayer> {
           opacity: 1,
           duration: const Duration(milliseconds: 200),
           child: Icon(
-            _controller!.value.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+            _controller!.value.isPlaying ? FluentIcons.pause_circle_20_filled : FluentIcons.play_circle_20_filled,
             size: 64,
             color: Colors.white.withOpacity(0.9),
           ),

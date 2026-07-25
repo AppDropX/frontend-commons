@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../models/page_toolbar_config.dart';
 import '../theme/appdrop_theme_config.dart';
@@ -173,7 +174,9 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
       case ToolbarRight.wishlist:
         return IconButton(
           icon: Icon(
-            wishlistSelected ? Icons.favorite : iconFromName('favorite_border'),
+            wishlistSelected
+                ? FluentIcons.heart_20_filled
+                : iconFromName('favorite_border'),
             color: styling.toolbarFont,
           ),
           onPressed: onWishlistTap,

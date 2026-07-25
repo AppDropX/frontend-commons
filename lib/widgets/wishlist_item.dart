@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/network_image_url.dart';
@@ -60,7 +61,7 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
                       child: ColoredBox(
                         color: Colors.grey.shade200,
                         child: Icon(
-                          Icons.image_not_supported,
+                          FluentIcons.image_off_20_regular,
                           size: r.dp(32),
                           color: Colors.grey.shade400,
                         ),
@@ -113,7 +114,7 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
                         'type': 'remove_from_wishlist',
                         'productId': productId,
                       }),
-              icon: Icon(Icons.favorite, color: Colors.red.shade400, size: r.dp(22)),
+              icon: Icon(FluentIcons.heart_20_filled, color: Colors.red.shade400, size: r.dp(22)),
             ),
           ],
         ),

@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
@@ -31,7 +32,9 @@ Widget buildEmptyCartState(BuildContext context, WidgetNode node, AppDropBuildEn
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(
-              emptyVariant == 'wishlist' ? Icons.favorite_border : Icons.shopping_cart_outlined,
+              emptyVariant == 'wishlist'
+                  ? FluentIcons.heart_20_regular
+                  : FluentIcons.cart_20_regular,
               size: r.dp(iconDp),
               color: iconColor,
             ),

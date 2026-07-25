@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../models/fab_config.dart';
@@ -55,14 +56,14 @@ class AppDropFab extends StatelessWidget {
                         imageUrl,
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) => Icon(
-                          Icons.broken_image_outlined,
+                          FluentIcons.image_off_20_regular,
                           color: config.iconColorValue,
                           size: 26,
                         ),
                       ),
                     )
                   : Icon(
-                      Icons.image_outlined,
+                      FluentIcons.image_20_regular,
                       color: config.iconColorValue,
                       size: 26,
                     ))

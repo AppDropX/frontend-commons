@@ -28,6 +28,7 @@ export 'pdp/pdp_page_chrome.dart';
 export 'pdp/pdp_overlay_metrics.dart';
 export 'pdp/pdp_overlay_button.dart';
 export 'product/product_variant_model.dart';
+export 'product/product_grid_hydration.dart';
 export 'features/rating_review_feature.dart';
 export 'cart/product_add_to_cart_flow.dart';
 export 'custom_block/embedded_custom_block_metrics.dart';

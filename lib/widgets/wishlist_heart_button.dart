@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
 /// Animated heart toggle used on product cards and cart rows.
@@ -184,7 +185,7 @@ class _WishlistHeartButtonState extends State<WishlistHeartButton>
                     child: Transform.scale(
                       scale: _outlineScale.value,
                       child: Icon(
-                        Icons.favorite_border,
+                        FluentIcons.heart_20_regular,
                         size: widget.size,
                         color: inactive,
                       ),
@@ -195,7 +196,7 @@ class _WishlistHeartButtonState extends State<WishlistHeartButton>
                     child: Transform.scale(
                       scale: _fillScale.value,
                       child: Icon(
-                        Icons.favorite,
+                        FluentIcons.heart_20_filled,
                         size: widget.size,
                         color: widget.activeColor,
                       ),

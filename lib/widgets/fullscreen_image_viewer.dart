@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/network_image_url.dart';
@@ -85,7 +86,7 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
               left: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.close_rounded),
+                icon: const Icon(FluentIcons.dismiss_20_regular),
                 color: Colors.white,
                 tooltip: 'Close',
               ),

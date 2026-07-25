@@ -1,3 +1,4 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
 /// Placeholder shown when a product has no image URL or the network load fails.
@@ -47,7 +48,7 @@ class ProductImagePlaceholder extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.image_outlined,
+                    FluentIcons.image_20_regular,
                     size: iconSize,
                     color: _mutedIconColor,
                   ),
