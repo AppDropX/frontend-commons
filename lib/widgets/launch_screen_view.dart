@@ -10,13 +10,19 @@ class LaunchScreenView extends StatelessWidget {
   const LaunchScreenView({
     super.key,
     required this.config,
+    this.logoOverride,
     this.fallbackLogo,
     this.fallbackBackgroundColor,
+    this.useNetworkLogo = true,
   });
 
   final LaunchScreenConfig config;
+  /// When set, replaces network/asset fallback for the app icon (e.g. cached local file).
+  final Widget? logoOverride;
   final Widget? fallbackLogo;
   final Color? fallbackBackgroundColor;
+  /// When false, skips [Image.network] for the logo (pilot cold-start splash).
+  final bool useNetworkLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -58,16 +64,17 @@ class LaunchScreenView extends StatelessWidget {
           ColoredBox(color: backgroundColor),
         if (appIcon.enabled)
           Center(
-            child: logoUrl != null
-                ? Image.network(
-                    logoUrl,
-                    width: logoSize,
-                    height: logoSize,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) =>
-                        fallbackLogo ?? const SizedBox.shrink(),
-                  )
-                : (fallbackLogo ?? const SizedBox.shrink()),
+            child: logoOverride ??
+                (useNetworkLogo && logoUrl != null
+                    ? Image.network(
+                        logoUrl,
+                        width: logoSize,
+                        height: logoSize,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            fallbackLogo ?? const SizedBox.shrink(),
+                      )
+                    : (fallbackLogo ?? const SizedBox.shrink())),
           ),
         if (loader.enabled)
           Positioned(

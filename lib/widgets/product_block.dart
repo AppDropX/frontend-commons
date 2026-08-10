@@ -112,19 +112,18 @@ Widget buildProductBlock(
       : b('inWishlist', false);
   final title = (product['title'] ?? '').toString();
   final vendor = (product['vendor'] ?? '').toString();
-  final imageUrl =
-      sanitizedNetworkImageUrl((product['imageUrl'] ?? '').toString());
+  final imageUrl = sanitizedNetworkImageUrl(bestApiProductImageUrl(product));
   final productImages = _productImages(product, imageUrl);
 
   final embedInGrid = b('embed_in_grid', false);
   final embedInPdp = b('embed_in_pdp', false);
   final pdpScope = embedInPdp ? PdpProductScope.maybeOf(context) : null;
-  final sellingPrice =
-      pdpScope?.sellingPrice ?? _toDouble(product['sellingPrice']);
-  final retailPrice =
-      pdpScope?.retailPrice ?? _toDouble(product['retailPrice']);
-  final discountPercent =
-      pdpScope?.discountPercent ?? _toInt(product['discountPercent']);
+  final sellingPrice = pdpScope?.sellingPrice ??
+      _resolvedSellingPrice(product, embedInGrid: embedInGrid);
+  final retailPrice = pdpScope?.retailPrice ??
+      _resolvedRetailPrice(product, sellingPrice, embedInGrid: embedInGrid);
+  final discountPercent = pdpScope?.discountPercent ??
+      _resolvedDiscountPercent(product, sellingPrice, retailPrice);
 
   final rating = _toDouble(product['rating']);
   final ratingCount = _toInt(product['ratingCount']);
@@ -545,16 +544,7 @@ Map<String, dynamic> _actionWithHeroTag(
 }
 
 List<String> _productImages(Map<String, dynamic> product, String? fallbackUrl) {
-  final images = <String>[];
-  final raw = product['images'];
-  if (raw is List) {
-    for (final item in raw) {
-      final candidate = sanitizedNetworkImageUrl(item?.toString() ?? '');
-      if (candidate != null && candidate.isNotEmpty) {
-        images.add(candidate);
-      }
-    }
-  }
+  final images = apiProductImageUrls(product);
   final fallback = sanitizedNetworkImageUrl(fallbackUrl ?? '');
   if (fallback != null && fallback.isNotEmpty && !images.contains(fallback)) {
     images.insert(0, fallback);
@@ -736,6 +726,63 @@ double _toDouble(dynamic v) {
   if (v is num) return v.toDouble();
   if (v is String) return double.tryParse(v) ?? 0;
   return 0;
+}
+
+Map<String, dynamic>? _nestedActionProduct(Map<String, dynamic> product) {
+  final action = product['action'];
+  if (action is! Map) return null;
+  final nested = action['product'];
+  if (nested is! Map) return null;
+  return Map<String, dynamic>.from(nested);
+}
+
+double _resolvedSellingPrice(
+  Map<String, dynamic> product, {
+  required bool embedInGrid,
+}) {
+  final direct = _toDouble(product['sellingPrice']);
+  if (direct > 0) return direct;
+  if (!embedInGrid) return direct;
+
+  final fromRow = sellingPriceFromApiProduct(product);
+  if (fromRow > 0) return fromRow;
+
+  final nested = _nestedActionProduct(product);
+  if (nested != null) return sellingPriceFromApiProduct(nested);
+  return direct;
+}
+
+double _resolvedRetailPrice(
+  Map<String, dynamic> product,
+  double sellingPrice, {
+  required bool embedInGrid,
+}) {
+  final direct = _toDouble(product['retailPrice']);
+  if (direct > sellingPrice) return direct;
+  if (!embedInGrid) return direct > 0 ? direct : sellingPrice;
+
+  final fromRow = retailPriceFromApiProduct(product, sellingPrice);
+  if (fromRow > sellingPrice) return fromRow;
+
+  final nested = _nestedActionProduct(product);
+  if (nested != null) {
+    final fromNested = retailPriceFromApiProduct(nested, sellingPrice);
+    if (fromNested > sellingPrice) return fromNested;
+  }
+  return direct > 0 ? direct : sellingPrice;
+}
+
+int _resolvedDiscountPercent(
+  Map<String, dynamic> product,
+  double sellingPrice,
+  double retailPrice,
+) {
+  final direct = _toInt(product['discountPercent']);
+  if (direct > 0) return direct;
+  if (retailPrice > sellingPrice && retailPrice > 0) {
+    return (((retailPrice - sellingPrice) / retailPrice) * 100).round();
+  }
+  return direct;
 }
 
 int _toInt(dynamic v) {

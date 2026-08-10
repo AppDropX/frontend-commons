@@ -1,3 +1,5 @@
+import 'pdp_image_banner_visibility.dart';
+
 /// Injects live [product] data into PDP CMS blocks (product_block, product_variant, …).
 List<Map<String, dynamic>> enrichPdpBlocksWithProduct(
   List<Map<String, dynamic>> cmsBlocks,
@@ -6,7 +8,9 @@ List<Map<String, dynamic>> enrichPdpBlocksWithProduct(
   final p = Map<String, dynamic>.from(product);
   final productId = (p['productId'] ?? p['id'])?.toString() ?? '';
 
-  return cmsBlocks.map((w) {
+  final visible = filterPdpBlocksForProduct(cmsBlocks, productId);
+
+  return visible.map((w) {
     final type = w['type']?.toString();
     final copy = Map<String, dynamic>.from(w);
 

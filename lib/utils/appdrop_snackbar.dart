@@ -13,8 +13,17 @@ import 'color.dart';
 /// Max width for the centered floating snack bar on wide layouts.
 const double kAppDropSnackBarMaxWidth = 360;
 
+/// Wider cap when showing long error payloads (still viewport-safe).
+const double kAppDropSnackBarErrorMaxWidth = 480;
+
 /// Minimum width on very narrow viewports.
 const double kAppDropSnackBarMinWidth = 200;
+
+/// Default message lines for compact toasts; errors use [kAppDropSnackBarErrorMaxLines].
+const int kAppDropSnackBarDefaultMaxLines = 2;
+
+/// Enough lines to show a full API error body without horizontal overflow.
+const int kAppDropSnackBarErrorMaxLines = 12;
 
 const Duration _kCompactSnackDuration = Duration(milliseconds: 1800);
 
@@ -204,7 +213,132 @@ Color _wishlistAccentForSnack(BuildContext context, Color? override) {
   return const Color(0xFFE53935);
 }
 
+OverlayEntry? _activeCompactSnackEntry;
+Timer? _activeCompactSnackTimer;
+
+void _removeActiveCompactSnack() {
+  _activeCompactSnackTimer?.cancel();
+  _activeCompactSnackTimer = null;
+  _activeCompactSnackEntry?.remove();
+  _activeCompactSnackEntry = null;
+}
+
+/// Bottom chrome below body content (home indicator + optional bottom nav).
+double _overlayBottomChrome(BuildContext context) {
+  final padding = MediaQuery.paddingOf(context).bottom;
+  final scaffold = Scaffold.maybeOf(context);
+  final hasBottomNav = scaffold?.widget.bottomNavigationBar != null;
+  return padding + (hasBottomNav ? kBottomNavigationBarHeight : 0);
+}
+
+/// Presents the compact pill via [Overlay] — not Material [SnackBar].
+///
+/// StatefulShellRoute keeps multiple branch [Scaffold]s registered under one
+/// [ScaffoldMessenger]; Material snack bars mount on each and share the same
+/// SnackBar Hero tag, which asserts on route transitions (e.g. View cart).
+///
+/// When [messenger] is passed explicitly (builder phone preview / admin host),
+/// fall back to Material [SnackBar] so the pill stays in that messenger's
+/// scaffold instead of the root app [Overlay].
 void _presentCompactSnackBar(
+  BuildContext context, {
+  required String message,
+  required Color accent,
+  required IconData icon,
+  Duration duration = _kCompactSnackDuration,
+  bool clearExisting = true,
+  EdgeInsets? margin,
+  bool alignTop = false,
+  bool prominent = false,
+  String? actionLabel,
+  VoidCallback? onAction,
+  ScaffoldMessengerState? messenger,
+  int messageMaxLines = kAppDropSnackBarDefaultMaxLines,
+  double? maxWidth,
+}) {
+  if (messenger != null) {
+    _presentMaterialCompactSnackBar(
+      messenger,
+      message: message,
+      accent: accent,
+      icon: icon,
+      duration: duration,
+      clearExisting: clearExisting,
+      margin: margin,
+      alignTop: alignTop,
+      prominent: prominent,
+      actionLabel: actionLabel,
+      onAction: onAction,
+      messageMaxLines: messageMaxLines,
+      maxWidth: maxWidth,
+    );
+    return;
+  }
+
+  if (clearExisting) {
+    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    _removeActiveCompactSnack();
+  }
+
+  final overlay = Overlay.maybeOf(context);
+  if (overlay == null || !context.mounted) return;
+
+  final resolvedMargin = margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 12);
+  final topPad =
+      alignTop ? MediaQuery.paddingOf(context).top + 12 : 0.0;
+  final bottomPad = alignTop
+      ? 0.0
+      : resolvedMargin.bottom + _overlayBottomChrome(context);
+
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (overlayContext) {
+      VoidCallback? resolvedAction;
+      if (onAction != null) {
+        resolvedAction = () {
+          _removeActiveCompactSnack();
+          onAction();
+        };
+      }
+
+      // Positioned.fill is required — Overlay stack children otherwise
+      // shrink-wrap, so Align.bottomCenter can't reach the screen bottom.
+      return Positioned.fill(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            resolvedMargin.left,
+            topPad,
+            resolvedMargin.right,
+            bottomPad,
+          ),
+          child: Align(
+            alignment:
+                alignTop ? Alignment.topCenter : Alignment.bottomCenter,
+            child: Material(
+              color: Colors.transparent,
+              child: _CompactSnackBody(
+                message: message,
+                accent: accent,
+                icon: icon,
+                prominent: prominent,
+                actionLabel: actionLabel,
+                onAction: resolvedAction,
+                messageMaxLines: messageMaxLines,
+                maxWidth: maxWidth,
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  _activeCompactSnackEntry = entry;
+  overlay.insert(entry);
+  _activeCompactSnackTimer = Timer(duration, _removeActiveCompactSnack);
+}
+
+void _presentMaterialCompactSnackBar(
   ScaffoldMessengerState messenger, {
   required String message,
   required Color accent,
@@ -214,9 +348,22 @@ void _presentCompactSnackBar(
   EdgeInsets? margin,
   bool alignTop = false,
   bool prominent = false,
+  String? actionLabel,
+  VoidCallback? onAction,
+  int messageMaxLines = kAppDropSnackBarDefaultMaxLines,
+  double? maxWidth,
 }) {
   if (clearExisting) {
     messenger.clearSnackBars();
+  }
+
+  VoidCallback? resolvedAction;
+  if (onAction != null) {
+    resolvedAction = () {
+      // Immediate remove — hide() leaves Heroes in-tree during route transitions.
+      messenger.removeCurrentSnackBar();
+      onAction();
+    };
   }
 
   messenger.showSnackBar(
@@ -229,13 +376,16 @@ void _presentCompactSnackBar(
       backgroundColor: Colors.transparent,
       dismissDirection:
           alignTop ? DismissDirection.up : DismissDirection.down,
-      content: KeyedSubtree(
-        key: UniqueKey(),
+      content: Center(
         child: _CompactSnackBody(
           message: message,
           accent: accent,
           icon: icon,
           prominent: prominent,
+          actionLabel: actionLabel,
+          onAction: resolvedAction,
+          messageMaxLines: messageMaxLines,
+          maxWidth: maxWidth,
         ),
       ),
     ),
@@ -256,9 +406,11 @@ void showAppDropSnackBar(
   ScaffoldMessengerState? messenger,
   bool? alignTop,
   bool? prominent,
+  String? actionLabel,
+  VoidCallback? onAction,
+  int? messageMaxLines,
 }) {
-  final resolvedMessenger = messenger ?? ScaffoldMessenger.maybeOf(context);
-  if (resolvedMessenger == null) return;
+  if (!context.mounted) return;
 
   final resolved = isError ? AppDropSnackKind.error : kind;
   final style = _accentForKind(resolved, Theme.of(context).colorScheme);
@@ -267,12 +419,26 @@ void showAppDropSnackBar(
   final resolvedAlignTop = alignTop ?? AppDropSnackBarScope.alignTopOf(context);
   final resolvedProminent =
       prominent ?? AppDropSnackBarScope.prominentOf(context);
-  final resolvedDuration = resolvedProminent && duration == _kCompactSnackDuration
-      ? const Duration(milliseconds: 2600)
-      : duration;
+  final resolvedMessageMaxLines = messageMaxLines ??
+      (isError ? kAppDropSnackBarErrorMaxLines : kAppDropSnackBarDefaultMaxLines);
+  final viewportWidth = MediaQuery.sizeOf(context).width;
+  final resolvedMaxWidth = isError
+      ? math
+          .min(kAppDropSnackBarErrorMaxWidth, viewportWidth - 32)
+          .clamp(kAppDropSnackBarMinWidth, kAppDropSnackBarErrorMaxWidth)
+      : math
+          .min(kAppDropSnackBarMaxWidth, viewportWidth - 32)
+          .clamp(kAppDropSnackBarMinWidth, kAppDropSnackBarMaxWidth);
+  final resolvedDuration = actionLabel != null && onAction != null
+      ? const Duration(milliseconds: 4500)
+      : (isError
+          ? const Duration(milliseconds: 6000)
+          : (resolvedProminent && duration == _kCompactSnackDuration
+              ? const Duration(milliseconds: 2600)
+              : duration));
 
   _presentCompactSnackBar(
-    resolvedMessenger,
+    context,
     message: message,
     accent: accent,
     icon: snackIcon,
@@ -285,6 +451,33 @@ void showAppDropSnackBar(
     ),
     alignTop: resolvedAlignTop,
     prominent: resolvedProminent,
+    actionLabel: actionLabel,
+    onAction: onAction,
+    messenger: messenger,
+    messageMaxLines: resolvedMessageMaxLines,
+    maxWidth: resolvedMaxWidth,
+  );
+}
+
+/// After add-to-cart: pill toast with optional navigation to the cart screen.
+void showAppDropAddedToCartSnack(
+  BuildContext context, {
+  required VoidCallback onViewCart,
+  String message = 'Added to cart',
+  String actionLabel = 'View cart',
+  Color? accentColor,
+  ScaffoldMessengerState? messenger,
+}) {
+  showAppDropSnackBar(
+    context,
+    message,
+    kind: AppDropSnackKind.success,
+    backgroundColor: accentColor ?? const Color(0xFFFF6A00),
+    icon: FluentIcons.cart_20_regular,
+    messenger: messenger,
+    duration: const Duration(milliseconds: 4500),
+    actionLabel: actionLabel,
+    onAction: onViewCart,
   );
 }
 
@@ -296,9 +489,7 @@ void showAppDropWishlistAddedSnack(
   Duration duration = _kCompactSnackDuration,
   ScaffoldMessengerState? messenger,
 }) {
-  final resolvedMessenger =
-      messenger ?? ScaffoldMessenger.maybeOf(context);
-  if (resolvedMessenger == null) return;
+  if (!context.mounted) return;
 
   triggerWishlistAddHaptic();
 
@@ -309,7 +500,7 @@ void showAppDropWishlistAddedSnack(
       ? const Duration(milliseconds: 2600)
       : duration;
   _presentCompactSnackBar(
-    resolvedMessenger,
+    context,
     message: message,
     accent: accent,
     icon: FluentIcons.heart_20_filled,
@@ -318,6 +509,7 @@ void showAppDropWishlistAddedSnack(
     margin: _snackBarMargin(context, alignTop: alignTop, prominent: prominent),
     alignTop: alignTop,
     prominent: prominent,
+    messenger: messenger,
   );
 }
 
@@ -327,12 +519,20 @@ class _CompactSnackBody extends StatelessWidget {
     required this.accent,
     required this.icon,
     this.prominent = false,
+    this.actionLabel,
+    this.onAction,
+    this.messageMaxLines = kAppDropSnackBarDefaultMaxLines,
+    this.maxWidth,
   });
 
   final String message;
   final Color accent;
   final IconData icon;
   final bool prominent;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final int messageMaxLines;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -340,10 +540,20 @@ class _CompactSnackBody extends StatelessWidget {
     final iconSize = prominent ? 18.0 : 15.0;
     final iconBox = prominent ? 32.0 : 26.0;
     final accentFill = prominent ? 0.22 : 0.12;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final resolvedMaxWidth = maxWidth ??
+        math
+            .min(kAppDropSnackBarMaxWidth, viewportWidth - 32)
+            .clamp(kAppDropSnackBarMinWidth, kAppDropSnackBarMaxWidth);
 
+    // Shrink-wrap to the pill. A plain Align.center expands to the parent and
+    // vertically centers the toast when shown in a full-screen Overlay.
     return Align(
       alignment: Alignment.center,
-      child: IntrinsicWidth(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: resolvedMaxWidth),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: prominent ? const Color(0xFFFAFAFA) : Colors.white,
@@ -378,52 +588,80 @@ class _CompactSnackBody extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: borderRadius,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (prominent)
-                  Container(width: 4, height: 52, color: accent),
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: prominent ? 14 : 10,
-                    vertical: prominent ? 11 : 7,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: iconBox,
-                        height: iconBox,
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: accentFill),
-                          shape: BoxShape.circle,
-                          border: prominent
-                              ? Border.all(
-                                  color: accent.withValues(alpha: 0.28),
-                                )
-                              : null,
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(icon, color: accent, size: iconSize),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (prominent) ColoredBox(color: accent, child: const SizedBox(width: 4)),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: prominent ? 14 : 10,
+                        vertical: prominent ? 11 : 7,
                       ),
-                      SizedBox(width: prominent ? 10 : 8),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: const Color(0xFF0F172A),
-                          fontSize: prominent ? 14 : 13,
-                          fontWeight:
-                              prominent ? FontWeight.w700 : FontWeight.w600,
-                          height: 1.25,
-                          letterSpacing: prominent ? 0.1 : 0,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: iconBox,
+                            height: iconBox,
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: accentFill),
+                              shape: BoxShape.circle,
+                              border: prominent
+                                  ? Border.all(
+                                      color: accent.withValues(alpha: 0.28),
+                                    )
+                                  : null,
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(icon, color: accent, size: iconSize),
+                          ),
+                          SizedBox(width: prominent ? 10 : 8),
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: TextStyle(
+                                color: const Color(0xFF0F172A),
+                                fontSize: prominent ? 14 : 13,
+                                fontWeight: prominent
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                height: 1.25,
+                                letterSpacing: prominent ? 0.1 : 0,
+                              ),
+                              maxLines: messageMaxLines,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (actionLabel != null && onAction != null) ...[
+                            const SizedBox(width: 12),
+                            TextButton(
+                              onPressed: onAction,
+                              style: TextButton.styleFrom(
+                                foregroundColor: accent,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: Text(
+                                actionLabel!,
+                                style: TextStyle(
+                                  color: accent,
+                                  fontSize: prominent ? 14 : 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

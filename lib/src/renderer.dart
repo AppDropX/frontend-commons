@@ -163,7 +163,6 @@ bool _usesFullBleedPdpBlock(WidgetNode node) {
   // Edge-to-edge under app bar / top tabs (no page-level horizontal inset).
   switch (type) {
     case 'custom_block':
-    case 'image_banner':
     case 'carousel':
     case 'image_slider':
     case 'video':

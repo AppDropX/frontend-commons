@@ -14,7 +14,7 @@ Widget buildPdpProductImageBlock(
 ) {
   if (!node.b('enabled', def: true)) return const SizedBox.shrink();
   final product = _effectiveProduct(context, node);
-  final imageUrl = sanitizedNetworkImageUrl((product['imageUrl'] ?? '').toString());
+  final imageUrl = sanitizedNetworkImageUrl(bestApiProductImageUrl(product));
   final images = _productImages(product, imageUrl);
 
   final aspect = _aspectFromIndex(node.i('aspect_ratio_index', def: 0));
@@ -71,14 +71,7 @@ Map<String, dynamic> _effectiveProduct(BuildContext context, WidgetNode node) {
 }
 
 List<String> _productImages(Map<String, dynamic> product, String? fallbackUrl) {
-  final images = <String>[];
-  final raw = product['images'];
-  if (raw is List) {
-    for (final item in raw) {
-      final candidate = sanitizedNetworkImageUrl(item?.toString() ?? '');
-      if (candidate != null && candidate.isNotEmpty) images.add(candidate);
-    }
-  }
+  final images = apiProductImageUrls(product);
   final fallback = sanitizedNetworkImageUrl(fallbackUrl ?? '');
   if (fallback != null && fallback.isNotEmpty && !images.contains(fallback)) {
     images.insert(0, fallback);

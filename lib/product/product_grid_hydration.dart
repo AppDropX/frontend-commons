@@ -3,6 +3,8 @@
 /// Page JSON should store collection references and layout only — not product snapshots.
 library;
 
+import 'product_variant_model.dart';
+
 const kAllProductsCollectionId = 'all';
 
 /// Maps raw API product rows into grid line items (see pilot/builder mappers).
@@ -29,10 +31,8 @@ String collectionRefFromGridWidget(Map<String, dynamic> w) {
 }
 
 String? productIdFromGridItem(Map<String, dynamic> item) {
-  final top = item['productId'] ?? item['id'];
-  if (top != null && top.toString().trim().isNotEmpty) {
-    return top.toString();
-  }
+  final fromApi = productIdFromApiProduct(item);
+  if (fromApi.isNotEmpty) return fromApi;
   final action = item['action'];
   if (action is Map) {
     final nested = action['productId'] ?? action['id'];
@@ -41,6 +41,88 @@ String? productIdFromGridItem(Map<String, dynamic> item) {
     }
   }
   return null;
+}
+
+const List<String> _kGridItemIdKeys = [
+  'productId',
+  'product_id',
+  'id',
+  'shopifyProductId',
+  'shopify_product_id',
+  'handle',
+];
+
+/// Every id spelling a row may use, so collection rows still match catalog rows
+/// when the two APIs differ (`product_id` vs `id`, `gid://…/Product/123` vs `123`).
+List<String> gridItemIdCandidates(Map<String, dynamic> item) {
+  final out = <String>[];
+
+  void add(dynamic value) {
+    if (value == null) return;
+    final s = value.toString().trim();
+    if (s.isEmpty) return;
+    if (!out.contains(s)) out.add(s);
+    final tail = s.split('/').last.trim();
+    if (tail.isNotEmpty && tail != s && !out.contains(tail)) out.add(tail);
+  }
+
+  void addFrom(Map<dynamic, dynamic> source) {
+    for (final key in _kGridItemIdKeys) {
+      add(source[key]);
+    }
+  }
+
+  addFrom(item);
+  final action = item['action'];
+  if (action is Map) {
+    addFrom(action);
+    final nested = action['product'];
+    if (nested is Map) addFrom(nested);
+  }
+  final product = item['product'];
+  if (product is Map) addFrom(product);
+
+  return out;
+}
+
+Map<String, Map<String, dynamic>> _catalogIndexByIdCandidates(
+  List<Map<String, dynamic>> catalogItems,
+) {
+  final byId = <String, Map<String, dynamic>>{};
+  for (final item in catalogItems) {
+    for (final candidate in gridItemIdCandidates(item)) {
+      byId.putIfAbsent(candidate, () => item);
+    }
+  }
+  return byId;
+}
+
+/// Id-only membership rows are useless without a catalog match — a tile with no
+/// title and no image would render blank.
+bool _rowHasRenderableContent(Map<String, dynamic> row) {
+  final title = row['title']?.toString().trim() ?? '';
+  if (title.isNotEmpty) return true;
+  final image = row['imageUrl']?.toString().trim() ?? '';
+  return image.isNotEmpty;
+}
+
+/// Live catalog row wins; keys it is missing (or left blank / zero for prices)
+/// fall back to [row].
+Map<String, dynamic> _mergeRowIntoLive(
+  Map<String, dynamic> row,
+  Map<String, dynamic> live,
+) {
+  const priceKeys = {'sellingPrice', 'retailPrice', 'discountPercent'};
+  final merged = Map<String, dynamic>.from(live);
+  row.forEach((key, value) {
+    final current = merged[key];
+    final missing = current == null ||
+        (current is String && current.trim().isEmpty) ||
+        (current is Iterable && current.isEmpty) ||
+        (priceKeys.contains(key) && current is num && current <= 0);
+    if (missing && value != null) merged[key] = value;
+  });
+  return merged;
 }
 
 String slugifyCollectionKey(String s) {
@@ -86,6 +168,13 @@ String? collectionTitleForRef(String ref, List<dynamic> collections) {
   return null;
 }
 
+const List<String> _kCollectionItemsKeys = [
+  'items',
+  'products',
+  'productIds',
+  'product_ids',
+];
+
 List<Map<String, dynamic>>? itemsFromCollectionRef(
   String ref,
   List<dynamic> collections,
@@ -93,33 +182,52 @@ List<Map<String, dynamic>>? itemsFromCollectionRef(
   if (isAllProductsCollectionRef(ref)) return null;
   final m = collectionMapForRef(ref, collections);
   if (m == null) return null;
-  final raw = m['items'];
-  if (raw is! List || raw.isEmpty) return null;
-  return [
-    for (final e in raw)
-      if (e is Map) Map<String, dynamic>.from(e),
-  ];
+
+  for (final key in _kCollectionItemsKeys) {
+    final raw = m[key];
+    if (raw is! List || raw.isEmpty) continue;
+    final rows = <Map<String, dynamic>>[];
+    for (final e in raw) {
+      if (e is Map) {
+        rows.add(Map<String, dynamic>.from(e));
+        continue;
+      }
+      // Id-only membership lists — the catalog fills in the product data.
+      final id = e?.toString().trim() ?? '';
+      if (id.isNotEmpty) rows.add({'productId': id});
+    }
+    if (rows.isNotEmpty) return rows;
+  }
+  return null;
 }
 
 /// Replaces saved/stale rows with live catalog rows (same order, matched by product id).
+///
+/// Rows with no catalog match are dropped (deleted products must not linger),
+/// unless [keepUnmatched] is set — collection rows are authoritative for
+/// membership, so those are kept as-is instead of silently disappearing.
 List<Map<String, dynamic>> refreshGridItemsFromCatalog(
   List<Map<String, dynamic>> catalogItems,
-  List<dynamic> savedItems,
-) {
-  final byId = <String, Map<String, dynamic>>{};
-  for (final item in catalogItems) {
-    final id = productIdFromGridItem(item);
-    if (id != null) byId[id] = item;
-  }
+  List<dynamic> savedItems, {
+  bool keepUnmatched = false,
+}) {
+  final byId = _catalogIndexByIdCandidates(catalogItems);
   if (byId.isEmpty) return [];
 
   final refreshed = <Map<String, dynamic>>[];
   for (final raw in savedItems) {
     if (raw is! Map) continue;
-    final id = productIdFromGridItem(Map<String, dynamic>.from(raw));
-    final live = id == null ? null : byId[id];
-    if (live == null) continue;
-    refreshed.add(live);
+    final row = Map<String, dynamic>.from(raw);
+    Map<String, dynamic>? live;
+    for (final candidate in gridItemIdCandidates(row)) {
+      live = byId[candidate];
+      if (live != null) break;
+    }
+    if (live == null) {
+      if (keepUnmatched && _rowHasRenderableContent(row)) refreshed.add(row);
+      continue;
+    }
+    refreshed.add(_mergeRowIntoLive(row, live));
   }
   return refreshed;
 }
@@ -142,7 +250,11 @@ List<Map<String, dynamic>> resolveProductGridItems({
   final colItems = itemsFromCollectionRef(ref, collectionsRaw);
   if (colItems != null && colItems.isNotEmpty) {
     final mapped = mapProducts(colItems);
-    final refreshed = refreshGridItemsFromCatalog(catalogItems, mapped);
+    final refreshed = refreshGridItemsFromCatalog(
+      catalogItems,
+      mapped,
+      keepUnmatched: true,
+    );
     return refreshed.isEmpty ? mapped : refreshed;
   }
 

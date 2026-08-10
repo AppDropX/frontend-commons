@@ -25,6 +25,88 @@ double parseApiNumber(dynamic value) {
   return 0;
 }
 
+/// Primary product id from dashboard / Shopify-style JSON.
+String productIdFromApiProduct(Map<String, dynamic> p) {
+  for (final key in [
+    'productId',
+    'product_id',
+    'id',
+    'shopifyProductId',
+    'shopify_product_id',
+  ]) {
+    final s = p[key]?.toString().trim() ?? '';
+    if (s.isNotEmpty) return s;
+  }
+  return '';
+}
+
+/// Parses a price field when present and strictly positive.
+double? optionalApiPrice(dynamic value) {
+  if (value == null) return null;
+  final parsed = parseApiNumber(value);
+  return parsed > 0 ? parsed : null;
+}
+
+/// Selling price from dashboard / Shopify-style product JSON.
+double sellingPriceFromApiProduct(Map<String, dynamic> p) {
+  for (final key in ['sellingPrice', 'selling_price']) {
+    final v = optionalApiPrice(p[key]);
+    if (v != null) return v;
+  }
+  final root = optionalApiPrice(p['price']);
+  if (root != null) return root;
+  return _firstVariantSellingPriceFromApi(p) ?? 0;
+}
+
+/// Retail / compare-at price from dashboard / Shopify-style product JSON.
+double retailPriceFromApiProduct(Map<String, dynamic> p, double selling) {
+  for (final key in [
+    'retailPrice',
+    'retail_price',
+    'compare_at_price',
+    'compareAtPrice',
+    'mrp',
+  ]) {
+    final v = optionalApiPrice(p[key]);
+    if (v != null) return v;
+  }
+  return _firstVariantRetailPriceFromApi(p) ?? selling;
+}
+
+double? _firstVariantSellingPriceFromApi(Map<String, dynamic> p) {
+  final variants = p['variants'];
+  if (variants is! List) return null;
+  for (final v in variants) {
+    if (v is! Map) continue;
+    final variant = Map<String, dynamic>.from(v);
+    final selling = optionalApiPrice(variant['sellingPrice']) ??
+        optionalApiPrice(variant['selling_price']) ??
+        optionalApiPrice(variant['price']);
+    if (selling != null) return selling;
+  }
+  return null;
+}
+
+double? _firstVariantRetailPriceFromApi(Map<String, dynamic> p) {
+  final variants = p['variants'];
+  if (variants is! List) return null;
+  for (final v in variants) {
+    if (v is! Map) continue;
+    final variant = Map<String, dynamic>.from(v);
+    for (final key in [
+      'retailPrice',
+      'retail_price',
+      'compare_at_price',
+      'compareAtPrice',
+      'mrp',
+    ]) {
+      final parsed = optionalApiPrice(variant[key]);
+      if (parsed != null) return parsed;
+    }
+  }
+  return null;
+}
+
 /// Label for the variant dimension row (e.g. Size, Color).
 String productVariantGroupLabel(Map<String, dynamic> product) {
   final options = product['options'];
@@ -102,20 +184,22 @@ String _variantDisplayLabel(Map<String, dynamic> variant) {
 }
 
 double _variantSellingPrice(Map<String, dynamic> variant) {
-  final selling = variant['sellingPrice'];
-  if (selling != null) {
-    final parsed = parseApiNumber(selling);
-    if (parsed > 0) return parsed;
-  }
+  final selling = optionalApiPrice(variant['sellingPrice']) ??
+      optionalApiPrice(variant['selling_price']);
+  if (selling != null) return selling;
   return parseApiNumber(variant['price']);
 }
 
 double? _variantRetailPrice(Map<String, dynamic> variant, double selling) {
-  for (final key in ['retailPrice', 'compare_at_price', 'compareAtPrice', 'mrp']) {
-    final raw = variant[key];
-    if (raw == null) continue;
-    final parsed = parseApiNumber(raw);
-    if (parsed > 0) return parsed;
+  for (final key in [
+    'retailPrice',
+    'retail_price',
+    'compare_at_price',
+    'compareAtPrice',
+    'mrp',
+  ]) {
+    final parsed = optionalApiPrice(variant[key]);
+    if (parsed != null) return parsed;
   }
   return selling > 0 ? selling : null;
 }
