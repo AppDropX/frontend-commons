@@ -84,7 +84,7 @@ class _DiscountCodeWidgetState extends State<_DiscountCodeWidget> {
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: Colors.grey.shade300),
-        boxShadow: kAppDropComponentShadows,
+        boxShadow: appDropBlockShadowsOf(context),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

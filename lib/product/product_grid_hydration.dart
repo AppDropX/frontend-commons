@@ -292,6 +292,131 @@ List<Map<String, dynamic>> hydrateProductGridsFromCatalog(
   ];
 }
 
+List<Map<String, String>> parsePopularChoiceItems(dynamic raw) {
+  if (raw is! List) return const [];
+  final out = <Map<String, String>>[];
+  for (final e in raw) {
+    if (e is! Map) continue;
+    final map = Map<String, dynamic>.from(e);
+    final title = (map['title'] ?? map['name'] ?? '').toString().trim();
+    if (title.isEmpty) continue;
+    final id = (map['id'] ?? map['collection'] ?? title).toString().trim();
+    out.add({'id': id, 'title': title});
+  }
+  return out;
+}
+
+List<Map<String, String>> _refreshPopularChoiceTitles(
+  List<Map<String, String>> items,
+  List<dynamic> collections,
+) {
+  if (items.isEmpty || collections.isEmpty) return items;
+  final titles = <String, String>{};
+  for (final raw in collections) {
+    if (raw is! Map) continue;
+    final map = Map<String, dynamic>.from(raw);
+    final id = (map['id'] ?? map['collectionId'] ?? map['collection_id'] ?? '')
+        .toString()
+        .trim();
+    final title = (map['title'] ?? map['name'] ?? '').toString().trim();
+    if (id.isEmpty || title.isEmpty) continue;
+    titles[id.toLowerCase()] = title;
+  }
+  return [
+    for (final item in items)
+      {
+        'id': item['id'] ?? '',
+        'title': titles[(item['id'] ?? '').toLowerCase()] ?? item['title'] ?? '',
+      },
+  ];
+}
+
+/// Curated block items when the merchant reordered/deleted chips; otherwise catalog.
+List<Map<String, String>> resolvePopularChoiceItems({
+  required Map<String, dynamic> block,
+  required List<dynamic> collectionsRaw,
+}) {
+  final existing = parsePopularChoiceItems(block['items']);
+  if (block['itemsCurated'] == true) {
+    return _refreshPopularChoiceTitles(existing, collectionsRaw);
+  }
+  final chips = popularChoiceItemsFromCollections(
+    collectionsRaw,
+    selectedIds: [
+      for (final e in (block['collectionIds'] is List
+          ? block['collectionIds'] as List
+          : const []))
+        e.toString(),
+    ],
+    maxItems: () {
+      final v = block['maxItems'];
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 12;
+      return 12;
+    }(),
+  );
+  if (chips.isNotEmpty) return chips;
+  return existing;
+}
+
+/// Collection chips for the search-page Popular Choices block.
+List<Map<String, String>> popularChoiceItemsFromCollections(
+  List<dynamic> collections, {
+  List<String> selectedIds = const [],
+  int maxItems = 12,
+}) {
+  final cap = maxItems < 1 ? 12 : maxItems;
+  final allow = {
+    for (final id in selectedIds)
+      if (id.trim().isNotEmpty) id.trim().toLowerCase(),
+  };
+  final chips = <Map<String, String>>[];
+  final seen = <String>{};
+  for (final raw in collections) {
+    if (raw is! Map) continue;
+    final map = Map<String, dynamic>.from(raw);
+    final id = (map['id'] ?? map['collectionId'] ?? map['collection_id'] ?? '')
+        .toString()
+        .trim();
+    final title = (map['title'] ?? map['name'] ?? '').toString().trim();
+    if (id.isEmpty || title.isEmpty) continue;
+    if (isAllProductsCollectionRef(id) || isAllProductsCollectionRef(title)) {
+      continue;
+    }
+    if (allow.isNotEmpty &&
+        !allow.contains(id.toLowerCase()) &&
+        !allow.contains(title.toLowerCase())) {
+      continue;
+    }
+    if (!seen.add(id.toLowerCase())) continue;
+    chips.add({'id': id, 'title': title});
+    if (chips.length >= cap) break;
+  }
+  return chips;
+}
+
+/// Fills `items` on every `popular_choices` block from live collections.
+List<Map<String, dynamic>> hydratePopularChoicesFromCatalog(
+  List<Map<String, dynamic>> pageJson,
+  List<dynamic> collectionsRaw,
+) {
+  return [
+    for (final w in pageJson)
+      if ((w['type'] ?? '').toString() == 'popular_choices')
+        () {
+          final chips = resolvePopularChoiceItems(
+            block: w,
+            collectionsRaw: collectionsRaw,
+          );
+          if (chips.isEmpty) return w;
+          return {...w, 'items': chips};
+        }()
+      else
+        w,
+  ];
+}
+
 /// PLP tab override: set collection ref on grids (items filled by [hydrateProductGridsFromCatalog]).
 List<Map<String, dynamic>> applyCollectionRefToProductGrids(
   List<Map<String, dynamic>> pageJson,
@@ -310,6 +435,22 @@ List<Map<String, dynamic>> applyCollectionRefToProductGrids(
           'showGridTitle': false,
           'showViewAllButton': false,
         }
+      else
+        w,
+  ];
+}
+
+/// Sets the collection heading on every `sort_filter` block.
+List<Map<String, dynamic>> applyCollectionTitleToSortFilter(
+  List<Map<String, dynamic>> pageJson,
+  String collectionTitle,
+) {
+  final title = collectionTitle.trim();
+  if (title.isEmpty) return pageJson;
+  return [
+    for (final w in pageJson)
+      if ((w['type'] ?? '').toString() == 'sort_filter')
+        {...w, 'collectionTitle': title}
       else
         w,
   ];

@@ -2,11 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import 'fullscreen_image_viewer.dart';
-import '../transitions/pdp_enter_animation.dart';
 import '../utils/color.dart';
 import '../utils/component_shadow.dart';
 import '../utils/network_image_url.dart';
-import 'product_hero_image.dart';
 
 class _SliderState extends StatefulWidget {
   final List<String> images;
@@ -83,6 +81,7 @@ class _SliderStateState extends State<_SliderState> {
       children: [
         PageView.builder(
           controller: controller,
+          allowImplicitScrolling: true,
           itemCount: widget.images.length,
           onPageChanged: (i) => setState(() => index = i),
           itemBuilder: (_, i) {
@@ -109,9 +108,10 @@ class _SliderStateState extends State<_SliderState> {
                         color: Color(0xFFE5E7EB),
                         child: SizedBox.expand(),
                       )
-                    : Image.network(
-                        u,
+                    : AppDropNetworkImage(
+                        url: u,
                         fit: BoxFit.cover,
+                        gaplessPlayback: true,
                         errorBuilder: (_, __, ___) => const ColoredBox(
                           color: Color(0xFFE5E7EB),
                           child: SizedBox.expand(),
@@ -215,7 +215,7 @@ Widget buildImageSlider(
   final slider = Container(
     decoration: BoxDecoration(
       borderRadius: br,
-      boxShadow: kAppDropComponentShadows,
+      boxShadow: appDropBlockShadowsOf(context),
     ),
     child: ClipRRect(
       borderRadius: br,

@@ -16,6 +16,7 @@ class PdpFloatingChrome extends StatelessWidget {
     this.wishlistColor = const Color(0xFFE53935),
     this.applySafeAreaTop = true,
     this.extraTopInset = 0,
+    this.buttonShadow = false,
   });
 
   final VoidCallback? onBack;
@@ -29,6 +30,9 @@ class PdpFloatingChrome extends StatelessWidget {
 
   /// Extra top offset when [MediaQuery] omits status-bar padding (builder preview).
   final double extraTopInset;
+
+  /// Stronger drop shadow so the control stays visible on light page chrome.
+  final bool buttonShadow;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +56,7 @@ class PdpFloatingChrome extends StatelessWidget {
               child: PdpOverlayCircleButton(
                 icon: iconFromName('back'),
                 onPressed: onBack,
+                showShadow: buttonShadow,
               ),
             ),
           if (showWishlistButton)
@@ -65,6 +70,7 @@ class PdpFloatingChrome extends StatelessWidget {
                 iconColor:
                     wishlistSelected ? wishlistColor : const Color(0xFF212127),
                 onPressed: onWishlistTap,
+                showShadow: buttonShadow,
               ),
             ),
         ],

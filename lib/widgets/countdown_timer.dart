@@ -4,7 +4,8 @@ import '../theme_library.dart';
 import '../utils/color.dart';
 import '../utils/network_image_url.dart';
 
-Widget buildCountdownTimer(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
+Widget buildCountdownTimer(
+    BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   return _CountdownTimerDisplay(node: node, env: env);
 }
 
@@ -62,13 +63,19 @@ class _CountdownTimerDisplayState extends State<_CountdownTimerDisplay> {
 
     final target = _parseTarget();
     final r = widget.env.r;
-    final bgColor = parseHexColor(widget.node.s('bgColor', def: '#1F2937')) ?? const Color(0xFF1F2937);
-    final timerColor = parseHexColor(widget.node.s('timerColor', def: '#FFFFFF')) ?? const Color(0xFFFFFFFF);
+    final bgColor = parseHexColor(widget.node.s('bgColor', def: '#1F2937')) ??
+        const Color(0xFF1F2937);
+    final timerColor =
+        parseHexColor(widget.node.s('timerColor', def: '#FFFFFF')) ??
+            const Color(0xFFFFFFFF);
     final showImageOption = widget.node.b('showImageOption', def: true);
-    final imageUrl = sanitizedNetworkImageUrl(widget.node.s('imageUrl', def: ''));
+    final imageUrl =
+        sanitizedNetworkImageUrl(widget.node.s('imageUrl', def: ''));
     final now = DateTime.now();
     final isComplete = target == null || !now.isBefore(target);
-    final remaining = target != null && now.isBefore(target) ? target.difference(now) : Duration.zero;
+    final remaining = target != null && now.isBefore(target)
+        ? target.difference(now)
+        : Duration.zero;
 
     Widget content;
     if (isComplete) {
@@ -78,19 +85,23 @@ class _CountdownTimerDisplayState extends State<_CountdownTimerDisplay> {
           borderRadius: BorderRadius.circular(r.dp(12)),
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: Image.network(
-              imageUrl,
+            child: AppDropNetworkImage(
+              url: imageUrl,
               fit: BoxFit.cover,
               width: double.infinity,
-              errorBuilder: (_, __, ___) =>
-                  const ColoredBox(color: Color(0xFFE5E7EB), child: SizedBox.expand()),
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => const ColoredBox(
+                  color: Color(0xFFE5E7EB), child: SizedBox.expand()),
             ),
           ),
         );
       } else {
         content = Center(
           child: DefaultTextStyle(
-            style: TextStyle(color: timerColor, fontSize: r.sp(16), fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: timerColor,
+                fontSize: r.sp(16),
+                fontWeight: FontWeight.w600),
             child: Text('Complete'),
           ),
         );

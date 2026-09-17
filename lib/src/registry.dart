@@ -17,12 +17,14 @@ import '../widgets/countdown_timer.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/discount_code.dart';
 import '../widgets/product_description.dart';
+import '../widgets/expandable_info.dart';
 import '../widgets/product_variant.dart';
 import '../widgets/pdp_product_cta_block.dart';
 import '../widgets/pdp_product_image_block.dart';
 import '../widgets/pdp_product_label_block.dart';
 import '../widgets/pdp_product_price_block.dart';
 import '../widgets/sort_filter.dart';
+import '../widgets/popular_choices.dart';
 import '../widgets/cart_item.dart';
 import '../widgets/empty_cart_state.dart';
 import '../widgets/wishlist_item.dart';
@@ -34,7 +36,11 @@ class WidgetRegistry {
 
   void register(String type, NodeBuilder builder) => _map[type] = builder;
 
-  NodeBuilder? builderFor(String type) => _map[type];
+  NodeBuilder? builderFor(String type) {
+    final key = type.trim();
+    if (key.isEmpty) return null;
+    return _map[key] ?? _map[key.toLowerCase()];
+  }
 
   static WidgetRegistry defaults() {
     final r = WidgetRegistry();
@@ -53,12 +59,14 @@ class WidgetRegistry {
     r.register('cta_button', buildCtaButton);
     r.register('discount_code', buildDiscountCode);
     r.register('product_description', buildProductDescription);
+    r.register('expandable_info', buildExpandableInfo);
     r.register('product_variant', buildProductVariant);
     r.register('pdp_product_image', buildPdpProductImageBlock);
     r.register('pdp_product_label', buildPdpProductLabelBlock);
     r.register('pdp_product_price', buildPdpProductPriceBlock);
     r.register('pdp_product_cta', buildPdpProductCtaBlock);
     r.register('sort_filter', buildSortFilter);
+    r.register('popular_choices', buildPopularChoices);
     r.register('cart_item', buildCartItem);
     r.register('wishlist_item', buildWishlistItem);
     r.register('empty_cart', buildEmptyCartState);

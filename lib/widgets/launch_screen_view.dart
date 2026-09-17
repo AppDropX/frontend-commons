@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/launch_screen_config.dart';
 import '../utils/color.dart';
 import '../utils/network_image_url.dart';
+import 'appdrop_network_image.dart';
 
 /// Renders a tenant launch / splash screen from [LaunchScreenConfig].
 class LaunchScreenView extends StatelessWidget {
@@ -17,10 +18,12 @@ class LaunchScreenView extends StatelessWidget {
   });
 
   final LaunchScreenConfig config;
+
   /// When set, replaces network/asset fallback for the app icon (e.g. cached local file).
   final Widget? logoOverride;
   final Widget? fallbackLogo;
   final Color? fallbackBackgroundColor;
+
   /// When false, skips [Image.network] for the logo (pilot cold-start splash).
   final bool useNetworkLogo;
 
@@ -40,23 +43,22 @@ class LaunchScreenView extends StatelessWidget {
         ? sanitizedNetworkImageUrl(background.imageUrl)
         : null;
 
-    final logoUrl = appIcon.enabled
-        ? sanitizedNetworkImageUrl(appIcon.logoUrl)
-        : null;
+    final logoUrl =
+        appIcon.enabled ? sanitizedNetworkImageUrl(appIcon.logoUrl) : null;
     final shortestSide = MediaQuery.sizeOf(context).shortestSide;
     final logoSize = appIcon.logoDimensionForShortestSide(shortestSide);
 
-    final loaderColor =
-        parseHexColor(loader.color) ?? const Color(0xFFFF6B00);
+    final loaderColor = parseHexColor(loader.color) ?? const Color(0xFFFF6B00);
 
     return Stack(
       fit: StackFit.expand,
       children: [
         if (backgroundUrl != null)
           Positioned.fill(
-            child: Image.network(
-              backgroundUrl,
+            child: AppDropNetworkImage(
+              url: backgroundUrl,
               fit: BoxFit.cover,
+              gaplessPlayback: true,
               errorBuilder: (_, __, ___) => ColoredBox(color: backgroundColor),
             ),
           )
@@ -66,13 +68,16 @@ class LaunchScreenView extends StatelessWidget {
           Center(
             child: logoOverride ??
                 (useNetworkLogo && logoUrl != null
-                    ? Image.network(
-                        logoUrl,
+                    ? SizedBox(
                         width: logoSize,
                         height: logoSize,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            fallbackLogo ?? const SizedBox.shrink(),
+                        child: AppDropNetworkImage(
+                          url: logoUrl,
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                          errorBuilder: (_, __, ___) =>
+                              fallbackLogo ?? const SizedBox.shrink(),
+                        ),
                       )
                     : (fallbackLogo ?? const SizedBox.shrink())),
           ),

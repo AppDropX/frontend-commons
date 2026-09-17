@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/page_toolbar_config.dart';
 import '../utils/color.dart';
 
 /// Tab / side-menu row can be a legacy [String] or a map with at least [title].
@@ -35,6 +36,15 @@ class AppStylingConfig {
   final Color sideNavBg;
   final Color sideNavFontColor;
 
+  /// App-wide screen background (`bg_color`).
+  final Color bgColor;
+
+  /// Block / card elevation color (`shadow_color`).
+  final Color shadowColor;
+
+  /// When false, block shadows are omitted (`shadow_visible`).
+  final bool shadowVisible;
+
   const AppStylingConfig({
     required this.fontFamily,
     required this.defaultColor,
@@ -48,6 +58,9 @@ class AppStylingConfig {
     required this.bottomIconStyle,
     required this.sideNavBg,
     required this.sideNavFontColor,
+    required this.bgColor,
+    required this.shadowColor,
+    required this.shadowVisible,
   });
 
   factory AppStylingConfig.fromJson(Map<String, dynamic> json) {
@@ -78,6 +91,58 @@ class AppStylingConfig {
       sideNavFontColor:
           parseHexColor(json['side_nav_font_color']?.toString()) ??
               const Color(0xFF6A4571),
+      bgColor: parseHexColor(json['bg_color']?.toString()) ?? Colors.white,
+      shadowColor: parseHexColor(json['shadow_color']?.toString()) ??
+          const Color(0xFF3E4B2F),
+      shadowVisible: json['shadow_visible'] is bool
+          ? json['shadow_visible'] as bool
+          : (json['shadow_visible']?.toString().toLowerCase() != 'false'),
+    );
+  }
+
+  AppStylingConfig copyWith({
+    String? fontFamily,
+    Color? defaultColor,
+    Color? fontIconColor,
+    Color? toolbarBg,
+    Color? toolbarFont,
+    Color? bottomBg,
+    Color? bottomSelected,
+    Color? bottomUnselected,
+    String? bottomStyle,
+    String? bottomIconStyle,
+    Color? sideNavBg,
+    Color? sideNavFontColor,
+    Color? bgColor,
+    Color? shadowColor,
+    bool? shadowVisible,
+  }) {
+    return AppStylingConfig(
+      fontFamily: fontFamily ?? this.fontFamily,
+      defaultColor: defaultColor ?? this.defaultColor,
+      fontIconColor: fontIconColor ?? this.fontIconColor,
+      toolbarBg: toolbarBg ?? this.toolbarBg,
+      toolbarFont: toolbarFont ?? this.toolbarFont,
+      bottomBg: bottomBg ?? this.bottomBg,
+      bottomSelected: bottomSelected ?? this.bottomSelected,
+      bottomUnselected: bottomUnselected ?? this.bottomUnselected,
+      bottomStyle: bottomStyle ?? this.bottomStyle,
+      bottomIconStyle: bottomIconStyle ?? this.bottomIconStyle,
+      sideNavBg: sideNavBg ?? this.sideNavBg,
+      sideNavFontColor: sideNavFontColor ?? this.sideNavFontColor,
+      bgColor: bgColor ?? this.bgColor,
+      shadowColor: shadowColor ?? this.shadowColor,
+      shadowVisible: shadowVisible ?? this.shadowVisible,
+    );
+  }
+
+  /// Applies per-page toolbar / screen color overrides when set.
+  AppStylingConfig withPageToolbarAppearance(PageToolbarConfig? tb) {
+    if (tb == null) return this;
+    return copyWith(
+      toolbarBg: parseHexColor(tb.toolbarBg) ?? toolbarBg,
+      toolbarFont: parseHexColor(tb.toolbarFont) ?? toolbarFont,
+      bgColor: parseHexColor(tb.screenBg) ?? bgColor,
     );
   }
 }
@@ -129,37 +194,91 @@ class BottomBarConfig {
 class SideMenuConfig {
   final List<SideMenuItemEntry> menuItems;
   final bool showDividers;
+  final bool expandDropdowns;
 
-  const SideMenuConfig({required this.menuItems, required this.showDividers});
+  const SideMenuConfig({
+    required this.menuItems,
+    required this.showDividers,
+    this.expandDropdowns = false,
+  });
 
   factory SideMenuConfig.fromJson(Map<String, dynamic> json) {
     final items =
         (json['menu_items'] is List) ? (json['menu_items'] as List) : const [];
+    final config = json['config'];
+    final childrenByParent = _parseSideMenuChildren(config);
     return SideMenuConfig(
       menuItems: items
-          .map(SideMenuItemEntry.fromJson)
+          .map((raw) {
+            final entry = SideMenuItemEntry.fromJson(raw);
+            final children = (childrenByParent[entry.id] ?? const [])
+                .where((c) => c.enabled)
+                .toList(growable: false);
+            return children.isEmpty
+                ? entry
+                : SideMenuItemEntry(
+                    id: entry.id,
+                    title: entry.title,
+                    enabled: entry.enabled,
+                    linkType: entry.linkType,
+                    linkValue: entry.linkValue,
+                    urlOpenType: entry.urlOpenType,
+                    children: children,
+                  );
+          })
           .where((e) => e.enabled)
           .toList(),
       showDividers: (json['show_dividers'] ?? true) == true,
+      expandDropdowns: config is Map && config['expand_dropdowns'] == true,
     );
+  }
+
+  /// `config.children` is `{ parentId: [ child, ... ] }` — one nesting level.
+  static Map<String, List<SideMenuItemEntry>> _parseSideMenuChildren(
+    dynamic config,
+  ) {
+    if (config is! Map) return const {};
+    final raw = config['children'];
+    if (raw is! Map) return const {};
+    final out = <String, List<SideMenuItemEntry>>{};
+    for (final entry in raw.entries) {
+      final list = entry.value;
+      if (list is! List) continue;
+      final children = list
+          .map(SideMenuItemEntry.fromJson)
+          .where((e) => e.enabled)
+          .toList(growable: false);
+      if (children.isNotEmpty) {
+        out[entry.key.toString()] = children;
+      }
+    }
+    return out;
   }
 }
 
 /// One side menu row with link metadata.
 class SideMenuItemEntry {
+  final String id;
   final String title;
   final bool enabled;
   final String linkType;
   final String? linkValue;
   final String? urlOpenType;
 
+  /// One-level children from `side_menu.config.children[id]`. Never nested.
+  final List<SideMenuItemEntry> children;
+
   const SideMenuItemEntry({
+    this.id = '',
     required this.title,
     this.enabled = true,
     this.linkType = 'system',
     this.linkValue,
     this.urlOpenType,
+    this.children = const [],
   });
+
+  bool get hasChildren => children.isNotEmpty;
 
   factory SideMenuItemEntry.fromJson(dynamic e) {
     if (e == null) {
@@ -180,6 +299,7 @@ class SideMenuItemEntry {
     if (e is Map) {
       final m = Map<String, dynamic>.from(e);
       return SideMenuItemEntry(
+        id: (m['id'] ?? '').toString(),
         title: labelFromThemeNavEntry(m),
         enabled: m['enabled'] as bool? ?? true,
         linkType: (m['link_type'] ?? 'system').toString(),
@@ -305,5 +425,25 @@ class AppDropThemeConfig {
           Map<String, dynamic>.from(json['top_navigation'] ?? {})),
       productBlock: Map<String, dynamic>.from(json['product_block'] ?? {}),
     );
+  }
+
+  AppDropThemeConfig copyWith({
+    AppStylingConfig? appStyling,
+    BottomBarConfig? bottomBar,
+    SideMenuConfig? sideMenu,
+    TopNavigationConfig? topNavigation,
+    Map<String, dynamic>? productBlock,
+  }) {
+    return AppDropThemeConfig(
+      appStyling: appStyling ?? this.appStyling,
+      bottomBar: bottomBar ?? this.bottomBar,
+      sideMenu: sideMenu ?? this.sideMenu,
+      topNavigation: topNavigation ?? this.topNavigation,
+      productBlock: productBlock ?? this.productBlock,
+    );
+  }
+
+  AppDropThemeConfig withPageToolbarAppearance(PageToolbarConfig? tb) {
+    return copyWith(appStyling: appStyling.withPageToolbarAppearance(tb));
   }
 }

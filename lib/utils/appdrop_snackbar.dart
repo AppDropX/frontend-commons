@@ -11,13 +11,13 @@ import '../theme/appdrop_theme_scope.dart';
 import 'color.dart';
 
 /// Max width for the centered floating snack bar on wide layouts.
-const double kAppDropSnackBarMaxWidth = 360;
+const double kAppDropSnackBarMaxWidth = 240;
 
 /// Wider cap when showing long error payloads (still viewport-safe).
 const double kAppDropSnackBarErrorMaxWidth = 480;
 
 /// Minimum width on very narrow viewports.
-const double kAppDropSnackBarMinWidth = 200;
+const double kAppDropSnackBarMinWidth = 132;
 
 /// Default message lines for compact toasts; errors use [kAppDropSnackBarErrorMaxLines].
 const int kAppDropSnackBarDefaultMaxLines = 2;
@@ -67,7 +67,7 @@ EdgeInsets _snackBarMargin(
   const gap = 12.0;
 
   if (!alignTop) {
-    return const EdgeInsets.fromLTRB(horizontal, 0, horizontal, gap);
+    return const EdgeInsets.fromLTRB(horizontal, 0, horizontal, 28);
   }
 
   final media = MediaQuery.of(context);
@@ -235,7 +235,7 @@ double _overlayBottomChrome(BuildContext context) {
 ///
 /// StatefulShellRoute keeps multiple branch [Scaffold]s registered under one
 /// [ScaffoldMessenger]; Material snack bars mount on each and share the same
-/// SnackBar Hero tag, which asserts on route transitions (e.g. View cart).
+/// SnackBar Hero tag, which asserts on route transitions.
 ///
 /// When [messenger] is passed explicitly (builder phone preview / admin host),
 /// fall back to Material [SnackBar] so the pill stays in that messenger's
@@ -459,12 +459,20 @@ void showAppDropSnackBar(
   );
 }
 
-/// After add-to-cart: pill toast with optional navigation to the cart screen.
+Color _cartAccentForSnack(BuildContext context, Color? override) {
+  if (override != null) return override;
+  final cfg = AppDropThemeScope.maybeOf(context);
+  if (cfg != null) {
+    final defaultColor = cfg.appStyling.defaultColor;
+    if (defaultColor != Colors.transparent) return defaultColor;
+  }
+  return const Color(0xFF54A685);
+}
+
+/// After add-to-cart: compact pill toast using the theme default color.
 void showAppDropAddedToCartSnack(
   BuildContext context, {
-  required VoidCallback onViewCart,
   String message = 'Added to cart',
-  String actionLabel = 'View cart',
   Color? accentColor,
   ScaffoldMessengerState? messenger,
 }) {
@@ -472,12 +480,9 @@ void showAppDropAddedToCartSnack(
     context,
     message,
     kind: AppDropSnackKind.success,
-    backgroundColor: accentColor ?? const Color(0xFFFF6A00),
+    backgroundColor: _cartAccentForSnack(context, accentColor),
     icon: FluentIcons.cart_20_regular,
     messenger: messenger,
-    duration: const Duration(milliseconds: 4500),
-    actionLabel: actionLabel,
-    onAction: onViewCart,
   );
 }
 
@@ -537,9 +542,8 @@ class _CompactSnackBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(prominent ? 12 : 10);
-    final iconSize = prominent ? 18.0 : 15.0;
-    final iconBox = prominent ? 32.0 : 26.0;
-    final accentFill = prominent ? 0.22 : 0.12;
+    final iconSize = prominent ? 16.0 : 14.0;
+    final iconBox = prominent ? 28.0 : 24.0;
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final resolvedMaxWidth = maxWidth ??
         math
@@ -588,78 +592,64 @@ class _CompactSnackBody extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: borderRadius,
-            child: IntrinsicHeight(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: prominent ? 12 : 10,
+                vertical: prominent ? 9 : 7,
+              ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (prominent) ColoredBox(color: accent, child: const SizedBox(width: 4)),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: prominent ? 14 : 10,
-                        vertical: prominent ? 11 : 7,
+                  Container(
+                    width: iconBox,
+                    height: iconBox,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(icon, color: Colors.white, size: iconSize),
+                  ),
+                  SizedBox(width: prominent ? 10 : 8),
+                  Flexible(
+                    child: Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: const Color(0xFF0F172A),
+                        fontSize: prominent ? 14 : 13,
+                        fontWeight: prominent
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        height: 1.25,
+                        letterSpacing: prominent ? 0.1 : 0,
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: iconBox,
-                            height: iconBox,
-                            decoration: BoxDecoration(
-                              color: accent.withValues(alpha: accentFill),
-                              shape: BoxShape.circle,
-                              border: prominent
-                                  ? Border.all(
-                                      color: accent.withValues(alpha: 0.28),
-                                    )
-                                  : null,
-                            ),
-                            alignment: Alignment.center,
-                            child: Icon(icon, color: accent, size: iconSize),
-                          ),
-                          SizedBox(width: prominent ? 10 : 8),
-                          Expanded(
-                            child: Text(
-                              message,
-                              style: TextStyle(
-                                color: const Color(0xFF0F172A),
-                                fontSize: prominent ? 14 : 13,
-                                fontWeight: prominent
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
-                                height: 1.25,
-                                letterSpacing: prominent ? 0.1 : 0,
-                              ),
-                              maxLines: messageMaxLines,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (actionLabel != null && onAction != null) ...[
-                            const SizedBox(width: 12),
-                            TextButton(
-                              onPressed: onAction,
-                              style: TextButton.styleFrom(
-                                foregroundColor: accent,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              child: Text(
-                                actionLabel!,
-                                style: TextStyle(
-                                  color: accent,
-                                  fontSize: prominent ? 14 : 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                      maxLines: messageMaxLines,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (actionLabel != null && onAction != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: onAction,
+                      style: TextButton.styleFrom(
+                        foregroundColor: accent,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: Text(
+                        actionLabel!,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: prominent ? 14 : 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

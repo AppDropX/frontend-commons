@@ -68,11 +68,18 @@ class AppDropScaffold extends StatefulWidget {
   /// When true, hides [AppDropAppBar] and shows [PdpFloatingChrome] instead.
   final bool hideAppBar;
 
+  /// When false, omits [AppDropAppBar] without enabling PDP floating chrome.
+  /// Bound to the dashboard `APP_TOOLBAR.visible` flag.
+  final bool showToolbar;
+
   /// When true, product grid title / view-all rows render (home page only).
   final bool showProductGridHomeTitle;
 
   /// Enables PDP staggered enter animations (image → title → price → …).
   final bool enablePdpEnterAnimation;
+
+  /// Overrides default [SingleChildScrollView] padding (e.g. cart: vertical only).
+  final EdgeInsets? scrollBodyPadding;
 
   const AppDropScaffold({
     super.key,
@@ -101,8 +108,10 @@ class AppDropScaffold extends StatefulWidget {
     this.bodyOverride,
     this.registry,
     this.hideAppBar = false,
+    this.showToolbar = true,
     this.showProductGridHomeTitle = false,
     this.enablePdpEnterAnimation = false,
+    this.scrollBodyPadding,
   });
 
   @override
@@ -113,7 +122,34 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
   late int tabIndex;
   late int bottomIndex;
 
+  Map<String, dynamic>? _themeCacheKey;
+  String? _appearanceCacheKey;
+  AppDropThemeConfig? _cachedConfig;
+  ThemeData? _cachedTheme;
+
   bool get _isBottomNavControlled => widget.onBottomNavTap != null;
+
+  /// Reparses [AppDropScaffold.themeJson] only when the map itself changes.
+  ///
+  /// Storefront branches rebuild on every cart / wishlist mutation, and
+  /// [AppDropThemeData.buildFromConfig] builds a full [ThemeData] with a Google
+  /// Fonts text theme — far too expensive to redo per tap when the theme JSON is
+  /// a stable object from app config.
+  void _ensureThemeCache() {
+    final appearanceKey = widget.pageToolbar?.appearanceCacheKey ?? '';
+    if (identical(_themeCacheKey, widget.themeJson) &&
+        _appearanceCacheKey == appearanceKey &&
+        _cachedConfig != null &&
+        _cachedTheme != null) {
+      return;
+    }
+    final cfg = AppDropThemeConfig.fromJson(widget.themeJson)
+        .withPageToolbarAppearance(widget.pageToolbar);
+    _themeCacheKey = widget.themeJson;
+    _appearanceCacheKey = appearanceKey;
+    _cachedConfig = cfg;
+    _cachedTheme = AppDropThemeData.buildFromConfig(cfg);
+  }
 
   int _sanitizeNavIndex(int index, int itemCount) {
     if (itemCount <= 0) return 0;
@@ -166,7 +202,8 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    final cfg = AppDropThemeConfig.fromJson(widget.themeJson);
+    _ensureThemeCache();
+    final cfg = _cachedConfig!;
     final topItems = cfg.topNavigation.items;
     final safeTopTabIndex =
         topItems.isEmpty ? 0 : tabIndex.clamp(0, topItems.length - 1);
@@ -181,7 +218,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
 
     final hasDrawer = cfg.sideMenu.menuItems.isNotEmpty;
     final bottomItems = cfg.bottomBar.items.where((e) => e.enabled).toList();
-    final theme = AppDropThemeData.buildFromConfig(cfg); // ✅ add this
+    final theme = _cachedTheme!;
 
     final safeBottomIndex = _sanitizeNavIndex(
       _isBottomNavControlled ? widget.initialBottomNavIndex : bottomIndex,
@@ -211,7 +248,7 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                   onItemTap: (item) => widget.onMenuItemTap?.call(item),
                 )
               : null,
-          appBar: widget.hideAppBar
+          appBar: widget.hideAppBar || !widget.showToolbar
               ? null
               : AppDropAppBar(
                   toolbarHeight: widget.appbarHeight,
@@ -258,17 +295,31 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
                     applyChromeSafeAreaTop: false,
                   ),
                 )
-              : _buildBodyStack(
-                  context: context,
-                  cfg: cfg,
-                  topItems: topItems,
-                  safeTopTabIndex: safeTopTabIndex,
-                  inlineNodes: inlineNodes,
-                  fixedBottomNodes: fixedBottomNodes,
-                  registry: registry,
-                  onAction: onAction,
-                  applyChromeSafeAreaTop: true,
-                ),
+              : !widget.showToolbar
+                  ? SafeArea(
+                      child: _buildBodyStack(
+                        context: context,
+                        cfg: cfg,
+                        topItems: topItems,
+                        safeTopTabIndex: safeTopTabIndex,
+                        inlineNodes: inlineNodes,
+                        fixedBottomNodes: fixedBottomNodes,
+                        registry: registry,
+                        onAction: onAction,
+                        applyChromeSafeAreaTop: true,
+                      ),
+                    )
+                  : _buildBodyStack(
+                      context: context,
+                      cfg: cfg,
+                      topItems: topItems,
+                      safeTopTabIndex: safeTopTabIndex,
+                      inlineNodes: inlineNodes,
+                      fixedBottomNodes: fixedBottomNodes,
+                      registry: registry,
+                      onAction: onAction,
+                      applyChromeSafeAreaTop: true,
+                    ),
         ),
       ),
     );
@@ -420,11 +471,14 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
     required WidgetRegistry registry,
     required AppDropActionHandler? onAction,
   }) {
-    // Even page inset on every side (top == left == right == bottom).
-    const pageInset = 8.0;
-    final scrollPadding = widget.hideAppBar
-        ? const EdgeInsets.only(bottom: PdpOverlayMetrics.contentPadding)
-        : const EdgeInsets.all(pageInset);
+    // Vertical inset on the scroll view; horizontal inset is applied per block
+    // in [AppDropRenderer] so image / video banners can opt out.
+    const pageInset = kPageContentInset;
+    // Flush under the toolbar — only keep a bottom gutter (and PDP overlay inset).
+    final scrollPadding = widget.scrollBodyPadding ??
+        (widget.hideAppBar
+            ? const EdgeInsets.only(bottom: PdpOverlayMetrics.contentPadding)
+            : const EdgeInsets.only(bottom: pageInset));
 
     final renderer = AppDropRenderer(
       nodes: inlineNodes,
@@ -432,9 +486,11 @@ class _AppDropScaffoldState extends State<AppDropScaffold> {
       onAction: onAction,
       cartQuantityForProduct: widget.cartQuantityForProduct,
       wishlistContainsProduct: widget.wishlistContainsProduct,
-      // Horizontal inset comes from [scrollPadding] so all sides match.
       contentHorizontalPadding:
           widget.hideAppBar ? PdpOverlayMetrics.contentPadding : null,
+      parentHorizontalInset:
+          widget.hideAppBar ? 0 : pageInset,
+      parentTopInset: scrollPadding.top,
       blockSpacing:
           widget.hideAppBar ? PdpOverlayMetrics.blockSpacing : 12,
       showProductGridHomeTitle: widget.showProductGridHomeTitle,

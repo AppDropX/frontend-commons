@@ -24,8 +24,13 @@ Widget buildRelatedProducts(
       : (collectionTitle.isNotEmpty ? collectionTitle : 'Related Products');
   adaptedProps['showViewAllButton'] = false;
   adaptedProps['showCollectionHeading'] = false;
-  adaptedProps['gridTitleFontVariation'] =
-      node.s('sectionTitleFontVariation', def: 'medium');
+  final sizeKey = node.s('sectionTitleFontVariation', def: 'small').toLowerCase();
+  adaptedProps['gridTitleFontVariation'] = sizeKey;
+  adaptedProps['gridTitleFontSize'] = _relatedTitleSizeDp(sizeKey);
+  adaptedProps['gridTitleFontWeight'] =
+      node.s('sectionTitleWeight', def: 'semi_bold');
+  adaptedProps['gridTitleAlign'] =
+      node.s('sectionTitleAlign', def: 'left').toLowerCase();
 
   final adaptedNode = WidgetNode(type: 'product_grid', props: adaptedProps);
   final adaptedEnv = AppDropBuildEnv(
@@ -39,4 +44,16 @@ Widget buildRelatedProducts(
   );
 
   return buildProductGrid(context, adaptedNode, adaptedEnv);
+}
+
+double _relatedTitleSizeDp(String variation) {
+  switch (variation) {
+    case 'large':
+      return 16;
+    case 'medium':
+      return 14;
+    case 'small':
+    default:
+      return 13;
+  }
 }

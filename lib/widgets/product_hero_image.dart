@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../transitions/product_hero_tags.dart';
 import '../utils/network_image_url.dart';
+import 'appdrop_network_image.dart';
 import 'product_image_placeholder.dart';
 
 /// Network product image with optional [Hero] flight (aspect ratio preserved).
@@ -31,10 +32,9 @@ Widget buildProductHeroImage({
         color: imageBg,
         child: url == null
             ? ProductImagePlaceholder(backgroundColor: imageBg)
-            : Image.network(
-                url,
+            : AppDropNetworkImage(
+                url: url,
                 fit: boxFit,
-                alignment: Alignment.center,
                 gaplessPlayback: true,
                 errorBuilder: (_, __, ___) =>
                     ProductImagePlaceholder(backgroundColor: imageBg),

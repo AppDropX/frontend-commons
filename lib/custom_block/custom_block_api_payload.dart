@@ -7,6 +7,7 @@ class CustomBlockApiPayload {
     required this.css,
     required this.js,
     required this.displayMode,
+    this.popupType = 'center',
   });
 
   final String id;
@@ -15,6 +16,7 @@ class CustomBlockApiPayload {
   final String css;
   final String js;
   final String displayMode;
+  final String popupType;
 
   static Map<String, dynamic> detailPayloadFromApiResponse(dynamic decoded) {
     if (decoded is! Map) return {};
@@ -104,6 +106,7 @@ class CustomBlockApiPayload {
       css: (flat['css'] ?? '').toString(),
       js: (flat['js'] ?? '').toString(),
       displayMode: (flat['display_mode'] ?? '').toString(),
+      popupType: (flat['popup_type'] ?? 'center').toString(),
     );
   }
 

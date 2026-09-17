@@ -42,6 +42,20 @@ IconData iconFromNameForNav(String name, bool selected) {
     case 'arrow_back':
     case 'back':
       return FluentIcons.chevron_left_20_regular;
+    case 'tag':
+    case 'local_offer':
+      return selected ? FluentIcons.tag_20_filled : FluentIcons.tag_20_regular;
+    case 'chat':
+    case 'chat_bubble':
+      return selected ? FluentIcons.chat_20_filled : FluentIcons.chat_20_regular;
+    case 'gift':
+    case 'card_giftcard':
+      return selected ? FluentIcons.gift_20_filled : FluentIcons.gift_20_regular;
+    case 'help':
+    case 'help_outline':
+      return selected
+          ? FluentIcons.question_circle_20_filled
+          : FluentIcons.question_circle_20_regular;
     default:
       return selected ? FluentIcons.circle_20_filled : FluentIcons.circle_20_regular;
   }

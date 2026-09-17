@@ -134,12 +134,43 @@ List<String> apiProductImageUrls(Map<String, dynamic> product) {
 
   for (final key in _kProductImageListKeys) {
     final raw = product[key];
+    if (raw is Map) {
+      final nested = raw['edges'] ?? raw['nodes'] ?? raw['items'];
+      if (nested is Iterable) {
+        for (final entry in nested) {
+          add(entry);
+        }
+        continue;
+      }
+    }
     if (raw is Iterable) {
       for (final entry in raw) {
         add(entry);
       }
     } else {
       add(raw);
+    }
+  }
+
+  final variants = product['variants'] ?? product['productVariants'];
+  Iterable<dynamic> variantEntries = const [];
+  if (variants is Map) {
+    final nested = variants['edges'] ?? variants['nodes'];
+    if (nested is Iterable) variantEntries = nested;
+  } else if (variants is Iterable) {
+    variantEntries = variants;
+  }
+  for (final variant in variantEntries) {
+    Map<String, dynamic>? map;
+    if (variant is Map) {
+      final node = variant['node'];
+      map = Map<String, dynamic>.from(
+        node is Map ? node : variant,
+      );
+    }
+    if (map == null) continue;
+    for (final key in [..._kProductImageKeys, ..._kProductImageListKeys]) {
+      add(map[key]);
     }
   }
   return out;

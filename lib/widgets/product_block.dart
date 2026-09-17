@@ -7,9 +7,11 @@ import '../transitions/pdp_enter_animation.dart';
 import '../utils/appdrop_snackbar.dart';
 import '../utils/color.dart';
 import '../utils/network_image_url.dart';
+import '../utils/product_block_theme_helpers.dart';
 import 'fullscreen_image_viewer.dart';
 import 'product_hero_image.dart';
 import 'product_image_placeholder.dart';
+import 'product_price_row.dart';
 import 'wishlist_heart_button.dart';
 
 /// Horizontal and below-image inset for product cards in [product_grid].
@@ -50,20 +52,12 @@ Widget buildProductBlock(
     return def;
   }
 
-  final showSelling = b('show_selling_price', true);
-  final showRetail = b('show_retail_price', true);
-  final showStrike = b('show_strike_through', true);
-  final showDiscount = b('show_discount', true);
-  // Rating & Review feature temporarily disabled
   final showRating = kRatingReviewFeatureEnabled && b('show_rating', true);
   final showRatingCount =
       kRatingReviewFeatureEnabled && b('show_rating_count', true);
   final showVendor = b('show_vendor', true);
   final showSwatches = b('show_swatches', true);
   final showAddToCart = b('add_to_cart', true);
-
-  final priceFont = s('price_font', 'Regular').toLowerCase(); // Bold
-  final discountSize = s('discount_size', 'Small').toLowerCase();
 
   final aspectIdx = i('image_aspect_ratio_index', 0);
   final fitIdx = i('image_position_index', 0); // ✅ 0=crop, 1=fit
@@ -79,9 +73,6 @@ Widget buildProductBlock(
         s('card_bg_color', s('image_bg_color', '#FFFFFF')),
       ) ??
       Colors.white;
-  final priceColor = parseHexColor(s('price_color', '#000000')) ?? Colors.black;
-  final discountColor =
-      parseHexColor(s('discount_color', '#FF0000')) ?? Colors.red;
   final ratingColor =
       parseHexColor(s('rating_color', '#FFA500')) ?? Colors.orange;
   final ratingFontColor =
@@ -98,6 +89,35 @@ Widget buildProductBlock(
           const Color(0xFFB63E3E);
   final wishlistColor = parseHexColor(s('product_wishlist_color', '#E53935')) ??
       const Color(0xFFE53935);
+
+  final upperCaseTitle = b('upper_case_title', true);
+  final cardView = b('card_view', true);
+  final titleFontVariation = s('title_font_variation', 'regular');
+  final titleFontWeight = titleFontWeightFromVariation(titleFontVariation);
+
+  final showWishlistBadge = b('show_wishlist_badge', false);
+  final wishlistBadgeSize = s('wishlist_badge_size', 'Small');
+  final wishlistBadgeCorner =
+      productBadgeCornerFromApi(s('wishlist_badge_position', 'top_right'));
+  final wishlistIconColor =
+      parseHexColor(s('wishlist_color', '')) ?? wishlistColor;
+  final wishlistBadgeBgColor =
+      parseHexColor(s('wishlist_badge_bg_color', '#E53935')) ??
+          const Color(0xFFE53935);
+
+  final showDiscountBadge = b('show_discount_badge', true);
+  final discountBadgeSize = s('discount_badge_size', 'Small');
+  final discountBadgeCorner =
+      productBadgeCornerFromApi(s('discount_badge_position', 'top_left'));
+  final discountBadgeShape =
+      normalizeDiscountBadgeShapeApi(s('discount_badge_shape', 'square'));
+  final discountBadgeCornerRadius = d('discount_badge_corner_radius', 0);
+  final discountBadgeTextColor =
+      parseHexColor(s('discount_color', '#FF0000')) ?? Colors.red;
+  final discountBadgeBgColor =
+      parseHexColor(s('discount_badge_bg_color', '#E53935')) ??
+          const Color(0xFFE53935);
+
   final buttonStyleRaw = s('button_style', 'sharp_filled').toLowerCase();
   final buttonStyleParts = buttonStyleRaw.split(RegExp(r'[_\-\s]+'));
   final buttonShape =
@@ -112,11 +132,17 @@ Widget buildProductBlock(
       : b('inWishlist', false);
   final title = (product['title'] ?? '').toString();
   final vendor = (product['vendor'] ?? '').toString();
+  final displayTitle = displayProductTitle(title, upperCaseTitle);
   final imageUrl = sanitizedNetworkImageUrl(bestApiProductImageUrl(product));
   final productImages = _productImages(product, imageUrl);
 
   final embedInGrid = b('embed_in_grid', false);
   final embedInPdp = b('embed_in_pdp', false);
+  // Cards paint at ~150 dp, so they request the CDN-narrowed thumbnail. PDP and
+  // the fullscreen viewer keep the full-resolution originals from [images].
+  final cardImageUrl = embedInPdp
+      ? imageUrl
+      : (sanitizedNetworkImageUrl(productThumbnailUrl(product)) ?? imageUrl);
   final pdpScope = embedInPdp ? PdpProductScope.maybeOf(context) : null;
   final sellingPrice = pdpScope?.sellingPrice ??
       _resolvedSellingPrice(product, embedInGrid: embedInGrid);
@@ -142,15 +168,12 @@ Widget buildProductBlock(
   final align = _alignFromIndex(titleAlignIdx);
   final titleMaxLines =
       (titleBehaviorIdx == 1) ? 1 : (maxLines <= 0 ? null : maxLines);
-  final priceWeight = _priceFontWeight(priceFont);
   final fontFamily = cfg?.appStyling.fontFamily ?? 'Poppins';
-  final sellingPriceStyle = AppDropThemeData.textStyle(
+  final priceDisplay = ProductPriceDisplayConfig.fromProductBlock(
+    merged,
     fontFamily: fontFamily,
-    fontSize: env.r.sp(14),
-    fontWeight: priceWeight,
-    color: priceColor,
+    r: env.r,
   );
-  final discountSp = _discountSp(discountSize, env.r);
 
   final incomingHeroTag =
       (merged['heroTag'] ?? product['heroTag'])?.toString().trim();
@@ -165,7 +188,7 @@ Widget buildProductBlock(
   const pdpHorizontalInsetDp = 16.0;
   final imageRadius = embedInPdp
       ? BorderRadius.circular(env.r.dp(radiusDp))
-      : embedInGrid
+      : embedInGrid && cardView
           ? BorderRadius.only(
               topLeft: Radius.circular(env.r.dp(radiusDp)),
               topRight: Radius.circular(env.r.dp(radiusDp)),
@@ -183,7 +206,7 @@ Widget buildProductBlock(
         )
       : buildProductHeroImage(
           productId: productId,
-          imageUrl: imageUrl,
+          imageUrl: cardImageUrl,
           aspectRatio: aspect,
           boxFit: boxFit,
           imageBg: imageBg,
@@ -204,18 +227,87 @@ Widget buildProductBlock(
   }
 
   if (!embedInPdp) {
-    image = Stack(
-      children: [
-        image,
-        Positioned(
-          right: env.r.dp(8),
-          top: env.r.dp(8),
+    final badgeInset = env.r.dp(8);
+    final overlays = <Widget>[];
+
+    if (showDiscountBadge && discountPercent > 0) {
+      final discountMetrics = discountBadgeMetrics(discountBadgeSize);
+      final discountIsSquare = isDiscountBadgeSquare(discountBadgeShape);
+      final discountRadiusDp = discountBadgeBorderRadiusDp(
+        cornerRadiusDp: discountBadgeCornerRadius,
+      );
+      final discountPadding = EdgeInsets.symmetric(
+        horizontal: env.r.dp(discountMetrics.padH),
+        vertical: env.r.dp(discountMetrics.padV),
+      );
+      final discountTextStyle = TextStyle(
+        fontSize: env.r.sp(
+          discountMetrics.fontSp,
+          min: 8,
+          max: 12,
+        ),
+        fontWeight: FontWeight.w700,
+        color: discountBadgeTextColor,
+        height: 1.05,
+      );
+      final discountDecoration = BoxDecoration(
+        color: discountBadgeBgColor,
+        borderRadius: BorderRadius.circular(env.r.dp(discountRadiusDp)),
+      );
+      final discountSide = env.r.dp(discountMetrics.squareSide);
+      overlays.add(
+        productBadgePositioned(
+          corner: discountBadgeCorner,
+          inset: badgeInset,
+          child: discountIsSquare
+              ? Container(
+                  width: discountSide,
+                  height: discountSide,
+                  padding: discountPadding,
+                  alignment: Alignment.center,
+                  decoration: discountDecoration,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('$discountPercent%', style: discountTextStyle),
+                        Text('OFF', style: discountTextStyle),
+                      ],
+                    ),
+                  ),
+                )
+              : Container(
+                  constraints: BoxConstraints(minHeight: discountSide),
+                  padding: discountPadding,
+                  alignment: Alignment.center,
+                  decoration: discountDecoration,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '$discountPercent% OFF',
+                      style: discountTextStyle,
+                    ),
+                  ),
+                ),
+        ),
+      );
+    }
+
+    if (showWishlistBadge) {
+      final badgeMetrics = wishlistBadgeMetrics(wishlistBadgeSize);
+      overlays.add(
+        productBadgePositioned(
+          corner: wishlistBadgeCorner,
+          inset: badgeInset,
           child: WishlistHeartButton(
             isWishlisted: inWishlist,
-            activeColor: wishlistColor,
-            size: env.r.dp(18),
+            activeColor: wishlistIconColor,
+            size: env.r.dp(badgeMetrics.iconDp),
             showBackground: true,
-            padding: EdgeInsets.all(env.r.dp(6)),
+            backgroundColor: wishlistBadgeBgColor,
+            padding: EdgeInsets.all(env.r.dp(badgeMetrics.padDp)),
             onTap: wishlistAction == null
                 ? null
                 : () {
@@ -226,8 +318,17 @@ Widget buildProductBlock(
                   },
           ),
         ),
-      ],
-    );
+      );
+    }
+
+    if (overlays.isNotEmpty) {
+      image = Stack(
+        children: [
+          image,
+          ...overlays,
+        ],
+      );
+    }
   }
 
   final gridMetaPadH = kGridProductCardContentPadDp;
@@ -267,13 +368,13 @@ Widget buildProductBlock(
             ),
           ),
         Text(
-          title,
+          displayTitle,
           maxLines: titleMaxLines,
           overflow: TextOverflow.ellipsis,
           textAlign: align,
           style: TextStyle(
             fontSize: env.r.sp(14, min: 12, max: 16),
-            fontWeight: FontWeight.w600,
+            fontWeight: titleFontWeight,
             color: titleColor,
           ),
         ),
@@ -307,34 +408,12 @@ Widget buildProductBlock(
               ],
             ),
           ),
-        Row(
-          mainAxisAlignment: _main(align),
-          children: [
-            if (showSelling && sellingPrice > 0)
-              Text('₹${sellingPrice.toStringAsFixed(0)}',
-                  style: sellingPriceStyle),
-            if (showRetail && retailPrice > sellingPrice) ...[
-              SizedBox(width: env.r.dp(8)),
-              Text(
-                '₹${retailPrice.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: env.r.sp(12),
-                  color: Colors.black54,
-                  decoration: showStrike
-                      ? TextDecoration.lineThrough
-                      : TextDecoration.none,
-                ),
-              ),
-            ],
-            if (showDiscount && discountPercent > 0) ...[
-              SizedBox(width: env.r.dp(5)),
-              Text('$discountPercent% OFF',
-                  style: TextStyle(
-                      fontSize: discountSp,
-                      fontWeight: FontWeight.w700,
-                      color: discountColor)),
-            ],
-          ],
+        _buildFittedPriceRow(
+          align: align,
+          sellingPrice: sellingPrice,
+          retailPrice: retailPrice,
+          discountPercent: discountPercent,
+          priceDisplay: priceDisplay,
         ),
         if (showSwatches && swatches.isNotEmpty) ...[
           SizedBox(height: env.r.dp(12)),
@@ -429,9 +508,10 @@ Widget buildProductBlock(
         align: align,
         showVendor: showVendor,
         vendor: vendor,
-        title: title,
+        title: displayTitle,
         titleMaxLines: titleMaxLines,
         titleColor: titleColor,
+        titleFontWeight: titleFontWeight,
         showRating: showRating,
         rating: rating,
         showRatingCount: showRatingCount,
@@ -448,17 +528,10 @@ Widget buildProductBlock(
       _pdpPriceSection(
         env: env,
         align: align,
-        showSelling: showSelling,
         sellingPrice: sellingPrice,
-        showRetail: showRetail,
         retailPrice: retailPrice,
-        showStrike: showStrike,
-        showDiscount: showDiscount,
         discountPercent: discountPercent,
-        sellingPriceStyle: sellingPriceStyle,
-        priceColor: priceColor,
-        discountSp: discountSp,
-        discountColor: discountColor,
+        priceDisplay: priceDisplay,
         showSwatches: showSwatches,
         swatches: swatches,
       ),
@@ -504,13 +577,16 @@ Widget buildProductBlock(
     );
   }
 
-  Widget card = ClipRRect(
-    borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
-    child: DecoratedBox(
-      decoration: BoxDecoration(color: cardBg),
-      child: body,
-    ),
-  );
+  Widget card = body;
+  if (cardView) {
+    card = ClipRRect(
+      borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: cardBg),
+        child: body,
+      ),
+    );
+  }
 
   if (action != null) {
     card = GestureDetector(
@@ -618,8 +694,8 @@ class _PdpProductImageCarouselState extends State<_PdpProductImageCarousel> {
                       borderRadius: widget.imageRadius,
                       child: ColoredBox(
                         color: widget.imageBg,
-                        child: Image.network(
-                          widget.images[i],
+                        child: AppDropNetworkImage(
+                          url: widget.images[i],
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) =>
                               ProductImagePlaceholder(
@@ -702,24 +778,37 @@ MainAxisAlignment _main(TextAlign a) => a == TextAlign.center
         ? MainAxisAlignment.end
         : MainAxisAlignment.start;
 
-double _discountSp(String size, dynamic r) {
-  if (size == 'large') return r.sp(14, min: 12, max: 16);
-  if (size == 'medium') return r.sp(12, min: 10, max: 14);
-  return r.sp(10, min: 9, max: 12);
-}
+Alignment _fittedBoxAlign(TextAlign a) => a == TextAlign.center
+    ? Alignment.center
+    : a == TextAlign.right
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
 
-FontWeight _priceFontWeight(String raw) {
-  final normalized =
-      raw.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
-  switch (normalized) {
-    case 'bold':
-      return FontWeight.w700;
-    case 'semibold':
-      return FontWeight.w600;
-    case 'regular':
-    default:
-      return FontWeight.w400;
-  }
+Widget _buildFittedPriceRow({
+  required TextAlign align,
+  required double sellingPrice,
+  required double retailPrice,
+  required int discountPercent,
+  required ProductPriceDisplayConfig priceDisplay,
+}) {
+  return Row(
+    mainAxisAlignment: _main(align),
+    children: [
+      Expanded(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: _fittedBoxAlign(align),
+          child: ProductPriceRow(
+            sellingPrice: sellingPrice,
+            retailPrice: retailPrice,
+            discountPercent: discountPercent,
+            config: priceDisplay,
+            align: align,
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 double _toDouble(dynamic v) {
@@ -815,6 +904,7 @@ Widget _pdpTitleSection({
   required String title,
   required int? titleMaxLines,
   required Color titleColor,
+  required FontWeight titleFontWeight,
   required bool showRating,
   required double rating,
   required bool showRatingCount,
@@ -856,7 +946,7 @@ Widget _pdpTitleSection({
           textAlign: align,
           style: TextStyle(
             fontSize: env.r.sp(14, min: 12, max: 16),
-            fontWeight: FontWeight.w600,
+            fontWeight: titleFontWeight,
             color: titleColor,
           ),
         ),
@@ -897,17 +987,10 @@ Widget _pdpTitleSection({
 Widget _pdpPriceSection({
   required AppDropBuildEnv env,
   required TextAlign align,
-  required bool showSelling,
   required double sellingPrice,
-  required bool showRetail,
   required double retailPrice,
-  required bool showStrike,
-  required bool showDiscount,
   required int discountPercent,
-  required TextStyle sellingPriceStyle,
-  required Color priceColor,
-  required double discountSp,
-  required Color discountColor,
+  required ProductPriceDisplayConfig priceDisplay,
   required bool showSwatches,
   required List<Color> swatches,
 }) {
@@ -922,39 +1005,12 @@ Widget _pdpPriceSection({
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: _cross(align),
       children: [
-        Row(
-          mainAxisAlignment: _main(align),
-          children: [
-            if (showSelling && sellingPrice > 0)
-              Text(
-                '₹${sellingPrice.toStringAsFixed(0)}',
-                style: sellingPriceStyle,
-              ),
-            if (showRetail && retailPrice > sellingPrice) ...[
-              SizedBox(width: env.r.dp(8)),
-              Text(
-                '₹${retailPrice.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: env.r.sp(12),
-                  color: Colors.black54,
-                  decoration: showStrike
-                      ? TextDecoration.lineThrough
-                      : TextDecoration.none,
-                ),
-              ),
-            ],
-            if (showDiscount && discountPercent > 0) ...[
-              SizedBox(width: env.r.dp(5)),
-              Text(
-                '$discountPercent% OFF',
-                style: TextStyle(
-                  fontSize: discountSp,
-                  fontWeight: FontWeight.w700,
-                  color: discountColor,
-                ),
-              ),
-            ],
-          ],
+        _buildFittedPriceRow(
+          align: align,
+          sellingPrice: sellingPrice,
+          retailPrice: retailPrice,
+          discountPercent: discountPercent,
+          priceDisplay: priceDisplay,
         ),
         if (showSwatches && swatches.isNotEmpty) ...[
           SizedBox(height: env.r.dp(12)),

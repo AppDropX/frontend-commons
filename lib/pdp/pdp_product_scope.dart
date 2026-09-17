@@ -5,13 +5,12 @@ import '../product/product_variant_model.dart';
 /// PDP selection state: chosen variant drives price and cart payload.
 class PdpProductController extends ChangeNotifier {
   PdpProductController(Map<String, dynamic> product)
-      : _product = Map<String, dynamic>.from(product),
-        variants = parseProductVariants(product) {
-    _selectedIndex = variants.isEmpty ? 0 : 0;
+      : _product = Map<String, dynamic>.from(product) {
+    _syncVariants(keepId: null);
   }
 
-  final Map<String, dynamic> _product;
-  final List<ProductVariantOption> variants;
+  Map<String, dynamic> _product;
+  List<ProductVariantOption> variants = const [];
   int _selectedIndex = 0;
 
   Map<String, dynamic> get product => _product;
@@ -31,9 +30,46 @@ class PdpProductController extends ChangeNotifier {
 
   bool get hasVariants => variants.length > 1;
 
+  /// Replaces the product payload (e.g. after a full-row fetch adds variants)
+  /// and keeps the previously selected variant when it still exists.
+  void applyProduct(Map<String, dynamic> product) {
+    final keepId = selectedVariant?.id;
+    _product = Map<String, dynamic>.from(product);
+    _syncVariants(keepId: keepId);
+    notifyListeners();
+  }
+
+  void _syncVariants({String? keepId}) {
+    variants = parseProductVariants(_product);
+    if (variants.isEmpty) {
+      _selectedIndex = 0;
+      return;
+    }
+    if (keepId != null && keepId.isNotEmpty) {
+      final idx = variants.indexWhere((v) => v.id == keepId);
+      if (idx >= 0 && !variants[idx].isOutOfStock) {
+        _selectedIndex = idx;
+        return;
+      }
+    }
+    final clamped = _selectedIndex.clamp(0, variants.length - 1);
+    if (!variants[clamped].isOutOfStock) {
+      _selectedIndex = clamped;
+      return;
+    }
+    _selectedIndex = _firstInStockIndex();
+  }
+
+  int _firstInStockIndex() {
+    final inStock = variants.indexWhere((v) => !v.isOutOfStock);
+    if (inStock >= 0) return inStock;
+    return _selectedIndex.clamp(0, variants.length - 1);
+  }
+
   void selectVariant(int index) {
     if (variants.isEmpty) return;
     final clamped = index.clamp(0, variants.length - 1);
+    if (variants[clamped].isOutOfStock) return;
     if (_selectedIndex == clamped) return;
     _selectedIndex = clamped;
     notifyListeners();
@@ -166,7 +202,9 @@ class _PdpProductScopeHostState extends State<PdpProductScopeHost> {
     if (oldId != newId) {
       _controller.dispose();
       _controller = PdpProductController(widget.product);
+      return;
     }
+    _controller.applyProduct(widget.product);
   }
 
   @override

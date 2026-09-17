@@ -50,6 +50,58 @@ String storeCatalogKeyForRoute(String route, {String? pageName}) {
   }
 }
 
+/// Merchant-created CMS pages (`/about`, `/demo`, …), not Home / PLP / Cart / etc.
+///
+/// Those pages show **Back** unless they were opened from the bottom bar,
+/// where they keep **Side navigation**.
+bool isMerchantCreatedPageRoute(String route) {
+  var r = route.trim();
+  if (r.isEmpty) return false;
+  if (!r.startsWith('/')) r = '/$r';
+  switch (r) {
+    case '/':
+    case '/home':
+    case '/plp':
+    case '/cart':
+    case '/wishlist':
+    case '/search':
+    case '/collections':
+    case '/products':
+      return false;
+    default:
+      if (r.startsWith('/products/') && r.length > '/products/'.length) {
+        return false;
+      }
+      if (r.startsWith('/collections/')) return false;
+      return true;
+  }
+}
+
+/// Runtime leading for a merchant-created page.
+PageToolbarConfig toolbarLeadingForMerchantPage(
+  PageToolbarConfig toolbar, {
+  required bool fromBottomBar,
+}) {
+  return toolbar.copyWith(
+    left: fromBottomBar ? ToolbarLeft.sideNavigation : ToolbarLeft.back,
+  );
+}
+
+/// Reads the dashboard widget-level `visible` flag for `APP_TOOLBAR`.
+///
+/// Defaults to `true` when the widget is missing so storefronts keep showing
+/// an app bar until a page explicitly disables it.
+bool appToolbarVisibleFromApiWidgets(List<dynamic> widgets) {
+  for (final e in widgets) {
+    if (e is! Map) continue;
+    final m = Map<String, dynamic>.from(e);
+    final bt = (m['block_type'] ?? m['type'] ?? '').toString().toLowerCase();
+    if (bt != 'app_toolbar') continue;
+    return m['visible'] != false;
+  }
+  return true;
+}
+
 /// Resolves persisted toolbar with per–page-type defaults (aligned with the builder).
 PageToolbarConfig effectiveStorefrontToolbar(
   String catalogKey,

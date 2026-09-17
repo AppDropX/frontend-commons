@@ -199,6 +199,9 @@ class _ProductSelectionBottomSheetState
                         surfaceColor: surfaceColor,
                         borderColor: borderColor,
                         r: r,
+                        outOfStockFlags: [
+                          for (final v in _controller.variants) v.isOutOfStock,
+                        ],
                         onSelect: _controller.selectVariant,
                       ),
                     ],

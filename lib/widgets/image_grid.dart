@@ -17,19 +17,22 @@ double _nameSpForVariation(String v, AppDropBuildEnv env) {
 }
 
 /// Vertical space reserved below each image when names are shown (single line).
-double _nameBlockHeight(AppDropBuildEnv env, double nameFontSize, bool showNames) {
+double _nameBlockHeight(
+    AppDropBuildEnv env, double nameFontSize, bool showNames) {
   if (!showNames) return 0;
   const maxLines = 1;
   const lineHeightFactor = 1.25;
   return env.r.dp(6) + nameFontSize * lineHeightFactor * maxLines + env.r.dp(2);
 }
 
-Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
+Widget buildImageGrid(
+    BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   if (!node.b('enabled', def: true)) return const SizedBox.shrink();
 
   final props = Map<String, dynamic>.from(node.props);
   normalizeImageGridProps(props);
-  final gridNode = WidgetNode(type: node.type, props: props, children: node.children);
+  final gridNode =
+      WidgetNode(type: node.type, props: props, children: node.children);
 
   final imgsRaw = gridNode.l('images') ?? const [];
   final images = imgsRaw.map((e) => e.toString()).toList();
@@ -38,8 +41,9 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
   final maxTile = gridNode.d('maxTileWidthDp', def: 140);
   final spacing = gridNode.d('spacingDp', def: 10);
   final radius = gridNode.d('radiusDp', def: 14);
-  final aspect = gridNode.d('tileAspectRatio', def: 1.0);
-  final bg = parseHexColor(gridNode.s('imageBgColor', def: '')) ?? const Color(0xFFE5E7EB);
+  final tileHeightDp = gridNode.d('tileHeightDp', def: 140);
+  final bg = parseHexColor(gridNode.s('imageBgColor', def: '')) ??
+      const Color(0xFFE5E7EB);
 
   final layoutMode = gridNode.s('layoutMode', def: 'grid').toLowerCase();
   final isCarousel = layoutMode == 'carousel' || layoutMode == 'horizontal';
@@ -56,7 +60,7 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
       i >= 0 && i < namesRaw.length ? namesRaw[i].toString().trim() : '';
 
   final redirectList = imageRedirectsListFromNode(gridNode);
-  final safeAspect = aspect <= 0 ? 1.0 : aspect;
+  final imageH = env.r.dp(tileHeightDp <= 0 ? 140 : tileHeightDp);
   final spacingPx = env.r.dp(spacing);
   final radiusPx = env.r.dp(radius);
 
@@ -66,7 +70,7 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
     return Container(
       decoration: BoxDecoration(
         borderRadius: br,
-        boxShadow: kAppDropComponentShadows,
+        boxShadow: appDropBlockShadowsOf(context),
       ),
       child: ClipRRect(
         borderRadius: br,
@@ -74,9 +78,10 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
           color: bg,
           child: u == null
               ? const SizedBox.expand()
-              : Image.network(
-                  u,
+              : AppDropNetworkImage(
+                  url: u,
                   fit: BoxFit.cover,
+                  gaplessPlayback: true,
                   errorBuilder: (_, __, ___) =>
                       ColoredBox(color: bg, child: const SizedBox.expand()),
                 ),
@@ -117,8 +122,8 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
     required double tileWidth,
     required double tileHeight,
   }) {
-    final imageH = (tileWidth / safeAspect).clamp(0.0, tileHeight);
-    final nameBlockH = (tileHeight - imageH).clamp(0.0, double.infinity);
+    final imageHeight = imageH.clamp(0.0, tileHeight);
+    final nameBlockH = (tileHeight - imageHeight).clamp(0.0, double.infinity);
     final name = nameAt(i);
     final action = actionFromImageRedirectsAt(redirectList, i);
 
@@ -130,7 +135,7 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
         children: [
           SizedBox(
             width: tileWidth,
-            height: imageH,
+            height: imageHeight,
             child: buildImage(images[i]),
           ),
           buildNameLabel(name, maxHeight: nameBlockH),
@@ -155,7 +160,6 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
         if (width <= 0) return const SizedBox.shrink();
 
         final tileW = env.r.dp(maxTile).clamp(100.0, width * 0.55);
-        final imageH = tileW / safeAspect;
         final nameExtra = _nameBlockHeight(env, nameFontSize, showNames);
         final rowH = imageH + nameExtra;
 
@@ -165,6 +169,7 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
             clipBehavior: Clip.none,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
+            cacheExtent: width,
             itemCount: images.length,
             separatorBuilder: (_, __) => SizedBox(width: spacingPx),
             itemBuilder: (_, i) => buildTile(
@@ -185,13 +190,13 @@ Widget buildImageGrid(BuildContext context, WidgetNode node, AppDropBuildEnv env
 
       final cols = (width / env.r.dp(maxTile)).floor().clamp(2, 4);
       final tileW = (width - spacingPx * (cols - 1)) / cols;
-      final imageH = tileW / safeAspect;
       final nameExtra = _nameBlockHeight(env, nameFontSize, showNames);
       final tileH = imageH + nameExtra;
 
       return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
+        cacheExtent: width,
         itemCount: images.length,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: cols,

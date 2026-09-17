@@ -255,6 +255,7 @@ class ThemeLinkTypes {
     scan(themeSettings['side_menu'] is Map
         ? (themeSettings['side_menu'] as Map)['menu_items'] as List?
         : null);
+    scan(_sideMenuChildRows(themeSettings));
 
     return out.values;
   }
@@ -287,7 +288,22 @@ class ThemeLinkTypes {
     scan(themeSettings['side_menu'] is Map
         ? (themeSettings['side_menu'] as Map)['menu_items'] as List?
         : null);
+    scan(_sideMenuChildRows(themeSettings));
 
     return ids;
+  }
+
+  static List<dynamic>? _sideMenuChildRows(Map<String, dynamic> themeSettings) {
+    final side = themeSettings['side_menu'];
+    if (side is! Map) return null;
+    final config = side['config'];
+    if (config is! Map) return null;
+    final children = config['children'];
+    if (children is! Map) return null;
+    final rows = <dynamic>[];
+    for (final value in children.values) {
+      if (value is List) rows.addAll(value);
+    }
+    return rows;
   }
 }

@@ -44,6 +44,7 @@ class AppDropThemeData {
   static ThemeData buildFromConfig(AppDropThemeConfig cfg) {
     final font = cfg.appStyling.fontFamily.trim();
     final content = cfg.appStyling.fontIconColor;
+    final bg = cfg.appStyling.bgColor;
 
     final base = ThemeData(useMaterial3: true);
 
@@ -53,11 +54,21 @@ class AppDropThemeData {
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: Colors.white,
-      canvasColor: Colors.white,
+      scaffoldBackgroundColor: bg,
+      canvasColor: bg,
       colorScheme: base.colorScheme.copyWith(
-        surface: Colors.white,
-        surfaceContainerLowest: Colors.white,
+        surface: bg,
+        surfaceContainerLowest: bg,
+        surfaceContainerLow: bg,
+        surfaceContainer: bg,
+        surfaceContainerHigh: bg,
+        surfaceContainerHighest: bg,
+        surfaceTint: Colors.transparent,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: bg,
+        surfaceTintColor: Colors.transparent,
+        textStyle: TextStyle(color: content),
       ),
       textTheme: tt,
       primaryTextTheme: tt,

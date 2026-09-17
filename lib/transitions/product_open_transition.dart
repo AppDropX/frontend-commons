@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Duration for PLP → PDP navigation (Blinkit / Zepto style: ~half second).
-const Duration kProductOpenTransitionDuration = Duration(milliseconds: 500);
+const Duration kProductOpenTransitionDuration = Duration(milliseconds: 320);
 
 /// Shared ease curve for forward and reverse product open transitions.
 const Curve kProductOpenTransitionCurve = Curves.easeInOut;

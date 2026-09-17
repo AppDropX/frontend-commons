@@ -18,11 +18,12 @@ Widget buildPdpProductImageBlock(
   final images = _productImages(product, imageUrl);
 
   final aspect = _aspectFromIndex(node.i('aspect_ratio_index', def: 0));
+  final radiusDp = node.d('radiusDp', def: 12);
   final indicatorColor = parseHexColor(
         node.s('indicator_color', def: '#FFFFFF'),
       ) ??
       Colors.white;
-  final imageRadius = BorderRadius.circular(env.r.dp(12));
+  final imageRadius = BorderRadius.circular(env.r.dp(radiusDp));
   final imageBg = const Color(0xFFE0E0E0);
   final productId =
       (product['productId'] ?? product['id'])?.toString().trim() ?? '';
@@ -56,7 +57,7 @@ Widget buildPdpProductImageBlock(
         );
 
   image = ClipRRect(
-    borderRadius: BorderRadius.circular(env.r.dp(12)),
+    borderRadius: BorderRadius.circular(env.r.dp(radiusDp)),
     child: image,
   );
   return image;
@@ -156,8 +157,8 @@ class _ImagePagerState extends State<_ImagePager> {
                 heroTag: widget.heroTag,
               );
             } else {
-              image = Image.network(
-                widget.images[i],
+              image = AppDropNetworkImage(
+                url: widget.images[i],
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) =>
                     ProductImagePlaceholder(backgroundColor: widget.imageBg),
@@ -175,27 +176,28 @@ class _ImagePagerState extends State<_ImagePager> {
             );
           },
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 10,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.images.length, (i) {
-              return Container(
-                width: i == _index ? 18 : 7,
-                height: 7,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: i == _index
-                      ? widget.indicatorColor
-                      : widget.indicatorColor.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              );
-            }),
+        if (widget.images.length > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 10,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.images.length, (i) {
+                return Container(
+                  width: i == _index ? 18 : 7,
+                  height: 7,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: i == _index
+                        ? widget.indicatorColor
+                        : widget.indicatorColor.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }),
+            ),
           ),
-        ),
       ],
     );
   }

@@ -74,13 +74,8 @@ class FabConfig {
   }
 
   factory FabConfig.fromJson(Map<String, dynamic> json) {
-    final visibilityRaw = json['visibility'];
-    final visibility = visibilityRaw is List
-        ? visibilityRaw.map((e) => e.toString()).toList()
-        : const <String>['all'];
-
     return FabConfig(
-      enabled: json['enabled'] == true,
+      enabled: json['enabled'] == true || json['enabled']?.toString() == 'true',
       shape: json['shape']?.toString() ?? 'rounded',
       contentStyle: json['content_style']?.toString() ?? 'icon',
       icon: json['icon']?.toString() ?? 'shopping_cart',
@@ -92,9 +87,23 @@ class FabConfig {
             ? Map<String, dynamic>.from(json['redirect'] as Map)
             : null,
       ),
-      visibility: visibility,
+      visibility: _parseVisibility(json['visibility']),
       updatedAt: json['updated_at']?.toString() ?? json['updatedAt']?.toString(),
     );
+  }
+
+  static List<String> _parseVisibility(dynamic visibilityRaw) {
+    if (visibilityRaw is List) {
+      return visibilityRaw.map((e) => e.toString()).toList();
+    }
+    if (visibilityRaw is String && visibilityRaw.trim().isNotEmpty) {
+      return visibilityRaw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return const <String>['all'];
   }
 
   Map<String, dynamic> toJson() => {
@@ -154,22 +163,38 @@ class FabConfig {
   /// Whether the FAB should show on a storefront [routePath] (e.g. `/`, `/plp`).
   bool isVisibleOnRoute(String routePath) {
     if (!enabled) return false;
-    if (visibility.contains('all')) return true;
+    if (_isHiddenRoute(routePath)) return false;
+    final tokens = visibility.map(_normalizeVisibilityToken).toSet();
+    if (tokens.contains('all')) return true;
 
     final key = _visibilityKeyForRoute(routePath);
     if (key == null) return false;
-    return visibility.contains(key);
+    return tokens.contains(key);
+  }
+
+  static String _normalizeVisibilityToken(String raw) {
+    final token = raw.trim().toLowerCase().replaceAll(' ', '_');
+    if (token == 'all_pages' || token == 'allpages') return 'all';
+    return token;
+  }
+
+  /// Search, cart, and in-app webviews never show the FAB.
+  static bool _isHiddenRoute(String routePath) {
+    final path = routePath.trim().isEmpty ? '/' : routePath.trim();
+    return path.startsWith('/search') ||
+        path.startsWith('/cart') ||
+        path.startsWith('/webview');
   }
 
   static String? _visibilityKeyForRoute(String routePath) {
     final path = routePath.trim().isEmpty ? '/' : routePath.trim();
     if (path == '/' || path == '/home') return 'home';
-    if (path.startsWith('/plp')) return 'plp';
-    if (path.startsWith('/cart')) return 'cart';
+    if (path.startsWith('/plp') || path.startsWith('/collections')) {
+      return 'plp';
+    }
     if (path.startsWith('/product/') || path.startsWith('/products/')) {
       return 'pdp';
     }
-    if (path.contains('account')) return 'account';
     return null;
   }
 }

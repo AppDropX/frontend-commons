@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -28,13 +30,14 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
   }
 
   final br = BorderRadius.circular(env.r.dp(radius));
+  final blockShadows = appDropMediaBlockShadowsOf(context, node);
 
   if (url.isEmpty) {
     return wrapTap(
       Container(
         decoration: BoxDecoration(
           borderRadius: br,
-          boxShadow: kAppDropComponentShadows,
+          boxShadow: blockShadows,
         ),
         child: ClipRRect(
           borderRadius: br,
@@ -55,7 +58,7 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
   return Container(
     decoration: BoxDecoration(
       borderRadius: br,
-      boxShadow: kAppDropComponentShadows,
+      boxShadow: blockShadows,
     ),
     child: ClipRRect(
       borderRadius: br,
@@ -67,7 +70,6 @@ Widget buildVideoBlock(BuildContext context, WidgetNode node, AppDropBuildEnv en
           loop: loop,
           showControls: showControls,
           muted: muted,
-          bgColor: bg,
           redirectAction: tapAction,
           env: env,
           buildContext: context,
@@ -84,7 +86,6 @@ class _VideoPlayer extends StatefulWidget {
     required this.loop,
     required this.showControls,
     required this.muted,
-    required this.bgColor,
     this.redirectAction,
     this.env,
     this.buildContext,
@@ -95,7 +96,6 @@ class _VideoPlayer extends StatefulWidget {
   final bool loop;
   final bool showControls;
   final bool muted;
-  final Color bgColor;
   final Map<String, dynamic>? redirectAction;
   final AppDropBuildEnv? env;
   final BuildContext? buildContext;
@@ -105,9 +105,13 @@ class _VideoPlayer extends StatefulWidget {
 }
 
 class _VideoPlayerState extends State<_VideoPlayer> {
+  static const _initTimeout = Duration(seconds: 25);
+
   VideoPlayerController? _controller;
   String? _lastUrl;
-  bool _error = false;
+  int _attempt = 0;
+  int _generation = 0;
+  bool _retryScheduled = false;
 
   @override
   void initState() {
@@ -120,66 +124,107 @@ class _VideoPlayerState extends State<_VideoPlayer> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url) {
       _lastUrl = null;
+      _attempt = 0;
       _initController();
+    } else if (_controller != null && _controller!.value.isInitialized) {
+      if (oldWidget.loop != widget.loop) {
+        _controller!.setLooping(widget.loop);
+      }
+      if (oldWidget.muted != widget.muted) {
+        _controller!.setVolume(widget.muted ? 0 : 1);
+      }
     }
   }
 
   Future<void> _initController() async {
     if (widget.url.isEmpty || widget.url == _lastUrl) return;
-    await _controller?.dispose();
+    final generation = ++_generation;
     _lastUrl = widget.url;
-    _error = false;
+    await _releaseController();
+    if (!mounted || generation != _generation) return;
+    setState(() {});
+
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-        ..setLooping(widget.loop)
-        ..setVolume(widget.muted ? 0 : 1);
-      await _controller!.initialize();
-      if (widget.autoplay && mounted) {
-        _controller!.play();
+      final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+      if (!mounted || generation != _generation) {
+        await controller.dispose();
+        return;
       }
-      if (mounted) setState(() {});
-    } catch (e) {
-      if (mounted) setState(() => _error = true);
+      _controller = controller;
+      controller.addListener(_onControllerUpdate);
+      await controller.initialize().timeout(_initTimeout);
+      if (!mounted || generation != _generation) return;
+      await controller.setLooping(widget.loop);
+      await controller.setVolume(widget.muted ? 0 : 1);
+      if (widget.autoplay && mounted && generation == _generation) {
+        await controller.play();
+      }
+      _attempt = 0;
+      if (mounted && generation == _generation) setState(() {});
+    } catch (_) {
+      if (!mounted || generation != _generation) return;
+      await _releaseController();
+      _scheduleRetry();
     }
+  }
+
+  void _onControllerUpdate() {
+    final controller = _controller;
+    if (controller == null || !mounted) return;
+    if (controller.value.hasError) {
+      _scheduleRetry();
+    }
+  }
+
+  void _scheduleRetry() {
+    if (_retryScheduled || !mounted) return;
+    _retryScheduled = true;
+    _attempt++;
+    final shift = (_attempt - 1).clamp(0, 3);
+    final delay = Duration(milliseconds: 1000 * (1 << shift));
+    Future<void>.delayed(delay, () async {
+      _retryScheduled = false;
+      if (!mounted) return;
+      _lastUrl = null;
+      await _initController();
+    });
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _releaseController() async {
+    final controller = _controller;
+    _controller = null;
+    if (controller == null) return;
+    controller.removeListener(_onControllerUpdate);
+    await controller.dispose();
   }
 
   @override
   void dispose() {
+    _generation++;
+    _controller?.removeListener(_onControllerUpdate);
     _controller?.dispose();
+    _controller = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_error) {
-      return Container(
-        color: widget.bgColor,
-        child: const Center(
-          child: Icon(FluentIcons.error_circle_20_regular, size: 48, color: Colors.white54),
-        ),
-      );
+    final controller = _controller;
+    final ready = controller != null && controller.value.isInitialized;
+    if (!ready) {
+      return const AppDropMediaShimmer();
     }
-    if (_controller == null || !_controller!.value.isInitialized) {
-      return Container(
-        color: widget.bgColor,
-        child: const Center(
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
-          ),
-        ),
-      );
-    }
+
     final hasRedirect =
         widget.redirectAction != null && widget.env != null && widget.buildContext != null;
 
     Widget playCtrl() {
       void toggle() {
-        if (_controller!.value.isPlaying) {
-          _controller!.pause();
+        if (controller.value.isPlaying) {
+          controller.pause();
         } else {
-          _controller!.play();
+          controller.play();
         }
         setState(() {});
       }
@@ -195,7 +240,7 @@ class _VideoPlayerState extends State<_VideoPlayer> {
             child: IconButton(
               onPressed: toggle,
               icon: Icon(
-                _controller!.value.isPlaying ? FluentIcons.pause_20_regular : FluentIcons.play_20_regular,
+                controller.value.isPlaying ? FluentIcons.pause_20_regular : FluentIcons.play_20_regular,
                 color: Colors.white,
                 size: 28,
               ),
@@ -210,9 +255,9 @@ class _VideoPlayerState extends State<_VideoPlayer> {
           opacity: 1,
           duration: const Duration(milliseconds: 200),
           child: Icon(
-            _controller!.value.isPlaying ? FluentIcons.pause_circle_20_filled : FluentIcons.play_circle_20_filled,
+            controller.value.isPlaying ? FluentIcons.pause_circle_20_filled : FluentIcons.play_circle_20_filled,
             size: 64,
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
           ),
         ),
       );
@@ -226,9 +271,9 @@ class _VideoPlayerState extends State<_VideoPlayer> {
           child: FittedBox(
             fit: BoxFit.cover,
             child: SizedBox(
-              width: _controller!.value.size.width,
-              height: _controller!.value.size.height,
-              child: VideoPlayer(_controller!),
+              width: controller.value.size.width,
+              height: controller.value.size.height,
+              child: VideoPlayer(controller),
             ),
           ),
         ),

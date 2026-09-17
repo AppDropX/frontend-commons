@@ -4,10 +4,12 @@ import '../src/widget_node.dart';
 ///
 /// Fields:
 /// - [enabled]: master toggle
-/// - [kind]: `collection` | `product` | `url`
+/// - [kind]: `collection` | `product` | `url` | `page`
 /// - [collectionId]: theme collection id (e.g. `best-sellers`, or `all`)
 /// - [productId]: catalog product id
 /// - [product]: optional snapshot map for PDP when storefront merges catalog
+/// - [pageId]: theme page id (Home or merchant-created; not PLP / PDP / cart / search / wishlist)
+/// - [pageName]: optional display title for preview
 /// - [url] / [urlScope]: `internal` (in-app webview) | `external` (device browser)
 Map<String, dynamic>? actionFromMediaRedirect(Map<String, dynamic>? redirect) {
   if (redirect == null || redirect.isEmpty) return null;
@@ -27,6 +29,15 @@ Map<String, dynamic>? actionFromMediaRedirect(Map<String, dynamic>? redirect) {
         'type': 'open_product',
         'productId': id,
         if (snap is Map) 'product': Map<String, dynamic>.from(snap),
+      };
+    case 'page':
+      final id = redirect['pageId']?.toString().trim() ?? '';
+      if (id.isEmpty) return null;
+      final name = redirect['pageName']?.toString().trim() ?? '';
+      return {
+        'type': 'open_page',
+        'pageId': id,
+        if (name.isNotEmpty) 'title': name,
       };
     case 'url':
       final url = redirect['url']?.toString().trim() ?? '';

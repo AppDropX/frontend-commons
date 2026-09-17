@@ -6,6 +6,7 @@ class ProductVariantOption {
     required this.sellingPrice,
     this.retailPrice,
     this.available = true,
+    this.inventoryQuantity,
     required this.raw,
   });
 
@@ -14,9 +15,12 @@ class ProductVariantOption {
   final double sellingPrice;
   final double? retailPrice;
   final bool available;
+  final int? inventoryQuantity;
   final Map<String, dynamic> raw;
 
   bool get hasPrice => sellingPrice > 0;
+
+  bool get isOutOfStock => !available;
 }
 
 double parseApiNumber(dynamic value) {
@@ -127,16 +131,55 @@ String productVariantGroupLabel(Map<String, dynamic> product) {
   return 'Variant';
 }
 
-/// Parses [product]['variants'] into displayable, available options.
+/// True when the product payload includes a non-empty variants list
+/// (including Shopify GraphQL `{edges: [{node: ...}]}` envelopes).
+bool productHasVariantPayload(Map<String, dynamic> product) {
+  return rawProductVariantMaps(product).isNotEmpty;
+}
+
+/// Flattens catalog / Shopify variant payloads into raw variant maps.
+List<Map<String, dynamic>> rawProductVariantMaps(Map<String, dynamic> product) {
+  return _variantMapsFrom(product['variants']) ??
+      _variantMapsFrom(product['productVariants']) ??
+      const [];
+}
+
+List<Map<String, dynamic>>? _variantMapsFrom(dynamic raw) {
+  if (raw is Map) {
+    final edges = raw['edges'] ?? raw['nodes'];
+    if (edges is List) return _variantMapsFrom(edges);
+    if (raw['node'] is Map) {
+      return [Map<String, dynamic>.from(raw['node'] as Map)];
+    }
+    return null;
+  }
+  if (raw is! List || raw.isEmpty) return null;
+
+  final out = <Map<String, dynamic>>[];
+  for (final entry in raw) {
+    if (entry is Map && entry['node'] is Map) {
+      out.add(Map<String, dynamic>.from(entry['node'] as Map));
+      continue;
+    }
+    if (entry is Map) {
+      out.add(Map<String, dynamic>.from(entry));
+    }
+  }
+  return out.isEmpty ? null : out;
+}
+
+/// Parses [product]['variants'] into displayable options.
+///
+/// Unavailable variants stay in the list so size/color chips still appear when
+/// only one option is in stock. Options without a label are skipped.
 List<ProductVariantOption> parseProductVariants(Map<String, dynamic> product) {
-  final variants = product['variants'];
-  if (variants is! List || variants.isEmpty) return [];
+  final variants = rawProductVariantMaps(product);
+  if (variants.isEmpty) return [];
 
   final parsed = <ProductVariantOption>[];
   for (final entry in variants) {
-    if (entry is! Map) continue;
-    final option = _parseVariantOption(Map<String, dynamic>.from(entry));
-    if (option != null && option.available) parsed.add(option);
+    final option = _parseVariantOption(entry);
+    if (option != null) parsed.add(option);
   }
   return parsed;
 }
@@ -155,8 +198,49 @@ ProductVariantOption? _parseVariantOption(Map<String, dynamic> variant) {
     sellingPrice: selling,
     retailPrice: retail,
     available: _variantIsAvailable(variant),
+    inventoryQuantity: parseVariantInventoryQuantity(variant),
     raw: variant,
   );
+}
+
+/// Remaining units from catalog / Shopify-style variant payloads.
+int? parseVariantInventoryQuantity(Map<String, dynamic> variant) {
+  for (final key in [
+    'inventory_quantity',
+    'inventoryQuantity',
+    'available_quantity',
+    'availableQuantity',
+    'quantity',
+    'stock',
+    'inventory',
+  ]) {
+    final value = variant[key];
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+  }
+
+  final availableQty = variant['available'];
+  if (availableQty is num) return availableQty.toInt();
+
+  final item = variant['inventoryItem'] ?? variant['inventory_item'];
+  if (item is Map) {
+    return parseVariantInventoryQuantity(Map<String, dynamic>.from(item));
+  }
+  return null;
+}
+
+/// Caption such as `2 left` when stock is at or below [threshold].
+String? remainingStockCaption(
+  int? quantity, {
+  required bool show,
+  required int threshold,
+}) {
+  if (!show || quantity == null) return null;
+  if (quantity <= 0 || quantity > threshold) return null;
+  return '$quantity left';
 }
 
 String _variantId(Map<String, dynamic> variant) {
@@ -179,6 +263,19 @@ String _variantDisplayLabel(Map<String, dynamic> variant) {
     if (s.isNotEmpty) parts.add(s);
   }
   if (parts.isNotEmpty) return parts.join(' / ');
+
+  final selected = variant['selectedOptions'] ?? variant['selected_options'];
+  if (selected is List) {
+    for (final option in selected) {
+      if (option is! Map) continue;
+      final value =
+          (option['value'] ?? option['option'])?.toString().trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'default title') {
+        parts.add(value);
+      }
+    }
+    if (parts.isNotEmpty) return parts.join(' / ');
+  }
 
   return '';
 }
@@ -205,14 +302,18 @@ double? _variantRetailPrice(Map<String, dynamic> variant, double selling) {
 }
 
 bool _variantIsAvailable(Map<String, dynamic> variant) {
+  final inventory = parseVariantInventoryQuantity(variant);
+  if (inventory != null) return inventory > 0;
+
   final available = variant['available'];
   if (available is bool) return available;
 
   final inStock = variant['in_stock'] ?? variant['inStock'];
   if (inStock is bool) return inStock;
 
-  final inventory = variant['inventory_quantity'] ?? variant['inventoryQuantity'];
-  if (inventory is num) return inventory > 0;
+  final availableForSale =
+      variant['availableForSale'] ?? variant['available_for_sale'];
+  if (availableForSale is bool) return availableForSale;
 
   return true;
 }
@@ -231,6 +332,55 @@ String variantLabelFromProductMap(Map<String, dynamic> product) {
   }
 
   return '';
+}
+
+/// Selected Shopify / catalog variant id from a cart line product map.
+String selectedVariantIdFromProductMap(Map<String, dynamic> product) {
+  for (final key in ['selectedVariantId', 'variant_id', 'variantId']) {
+    final s = product[key]?.toString().trim() ?? '';
+    if (s.isNotEmpty) return s;
+  }
+  final selected = product['selectedVariant'];
+  if (selected is Map) {
+    final id = _variantId(Map<String, dynamic>.from(selected));
+    if (id.isNotEmpty) return id;
+  }
+  return '';
+}
+
+/// Stable cart line key: `productId` plus selected variant so size/color
+/// choices stay as separate rows.
+String cartLineKey({
+  required String productId,
+  Map<String, dynamic>? product,
+}) {
+  final pid = productId.trim();
+  if (pid.isEmpty) return '';
+  final map = product ?? const <String, dynamic>{};
+  var variantId = selectedVariantIdFromProductMap(map);
+  if (variantId.isEmpty) {
+    variantId = variantLabelFromProductMap(map);
+  }
+  if (variantId.isEmpty) return pid;
+  return '$pid::$variantId';
+}
+
+/// True when the product can be sold: any parsed variant is in stock, or
+/// product-level availability when there are no variants.
+bool catalogProductIsInStock(Map<String, dynamic> product) {
+  final variants = parseProductVariants(product);
+  if (variants.isNotEmpty) {
+    return variants.any((v) => !v.isOutOfStock);
+  }
+  if (product['available'] is bool) return product['available'] as bool;
+  final inStock = product['in_stock'] ?? product['inStock'];
+  if (inStock is bool) return inStock;
+  final availableForSale =
+      product['availableForSale'] ?? product['available_for_sale'];
+  if (availableForSale is bool) return availableForSale;
+  final qty = parseVariantInventoryQuantity(product);
+  if (qty != null) return qty > 0;
+  return true;
 }
 
 /// Merges the selected variant into a product map for cart / checkout actions.

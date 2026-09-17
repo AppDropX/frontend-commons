@@ -3,6 +3,7 @@ import '../features/rating_review_feature.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
 import '../utils/component_shadow.dart';
+import '../utils/product_block_theme_helpers.dart';
 
 /// Horizontal and below-image inset for grid product cards.
 /// Keep in sync with [kGridProductCardContentPadDp] in product_block.dart.
@@ -32,6 +33,19 @@ double _titleSpForVariation(String v, AppDropBuildEnv env) {
   }
 }
 
+FontWeight _gridTitleFontWeight(String raw) {
+  switch (raw.trim().toLowerCase()) {
+    case 'regular':
+      return FontWeight.w400;
+    case 'semi_bold':
+    case 'semibold':
+      return FontWeight.w600;
+    case 'bold':
+    default:
+      return FontWeight.w700;
+  }
+}
+
 double _viewAllSpForVariation(String v, AppDropBuildEnv env) {
   switch (v.toLowerCase()) {
     case 'large':
@@ -42,6 +56,181 @@ double _viewAllSpForVariation(String v, AppDropBuildEnv env) {
     default:
       return env.r.sp(12, min: 11, max: 14);
   }
+}
+
+/// Largest logical tile width before a vertical grid adds another column.
+const double kProductGridMaxTileDp = 190;
+
+/// Tile styling resolved from the theme scope and the grid's CMS node.
+///
+/// Extracted from [buildProductGrid] so a paginated sliver grid can render
+/// tiles identical to the inline one instead of re-deriving the same values.
+class ProductGridTileStyle {
+  const ProductGridTileStyle({
+    required this.showAddToCart,
+    required this.addToCartTitle,
+    required this.addToCartIsOutlined,
+    required this.addToCartShape,
+    required this.addToCartTitleSize,
+    required this.addToCartCtaColor,
+    required this.addToCartCtaFontColor,
+    required this.radiusDp,
+    required this.aspect,
+    required this.maxLines,
+    required this.showVendor,
+    required this.showRating,
+    required this.showSwatches,
+  });
+
+  factory ProductGridTileStyle.resolve(BuildContext context, WidgetNode node) {
+    final pb = AppDropThemeScope.maybeOf(context)?.productBlock ??
+        const <String, dynamic>{};
+
+    final buttonStyleRaw =
+        (pb['button_style'] ?? '').toString().toLowerCase().trim();
+    final buttonParts = buttonStyleRaw
+        .split(RegExp(r'[_\-\s]+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final shape = buttonParts.isNotEmpty ? buttonParts.first : 'rounded';
+    final isOutlined =
+        (buttonParts.length > 1 ? buttonParts[1] : 'filled') == 'outlined';
+
+    return ProductGridTileStyle(
+      showAddToCart: _b(pb, 'add_to_cart', node.b('showAddToCart', def: false)),
+      addToCartTitle: _addToCartTitle(node),
+      addToCartIsOutlined: isOutlined,
+      addToCartShape: shape,
+      addToCartTitleSize: node.d('addToCartTitleSize', def: 16),
+      addToCartCtaColor: isOutlined
+          ? (parseHexColor((pb['outlined_button_bg'] ?? '#FF6A00').toString()) ??
+              const Color(0xFFFF6A00))
+          : (parseHexColor((pb['filled_button_bg'] ?? '#FF6A00').toString()) ??
+              const Color(0xFFFF6A00)),
+      addToCartCtaFontColor: isOutlined
+          ? (parseHexColor(
+                  (pb['outlined_button_color'] ?? '#FF6A00').toString()) ??
+              const Color(0xFFFF6A00))
+          : (parseHexColor(
+                  (pb['filled_button_color'] ?? '#FFFFFF').toString()) ??
+              const Color(0xFFFFFFFF)),
+      radiusDp: _d(pb, 'corner_radius', 12),
+      aspect: _aspectFromIndex(_i(pb, 'image_aspect_ratio_index', 0)),
+      maxLines: _i(pb, 'max_lines', 2),
+      showVendor: _b(pb, 'show_vendor', true),
+      // Rating & Review feature temporarily disabled
+      showRating: kRatingReviewFeatureEnabled && _b(pb, 'show_rating', true),
+      showSwatches: _b(pb, 'show_swatches', true),
+    );
+  }
+
+  final bool showAddToCart;
+  final String addToCartTitle;
+  final bool addToCartIsOutlined;
+  final String addToCartShape;
+  final double addToCartTitleSize;
+  final Color addToCartCtaColor;
+  final Color addToCartCtaFontColor;
+  final double radiusDp;
+  final double aspect;
+  final int maxLines;
+  final bool showVendor;
+  final bool showRating;
+  final bool showSwatches;
+
+  /// Height the add-to-cart row adds below the card body.
+  double addToCartExtent(R r) => showAddToCart
+      ? r.dp(_gridAtcPaddingTopDp) +
+          r.dp(_gridAtcButtonDp) +
+          r.dp(_gridAtcPaddingBottomDp)
+      : 0.0;
+
+  /// Total tile height for a tile [tileWidth] wide.
+  double tileHeight(AppDropBuildEnv env, double tileWidth) {
+    final imageH = tileWidth / aspect;
+    final metaH = _estimateMetaHeight(
+        env, maxLines, showVendor, showRating, showSwatches);
+    return imageH + metaH + addToCartExtent(env.r);
+  }
+}
+
+/// Column count and tile size for one product grid.
+class ProductGridMetrics {
+  const ProductGridMetrics({
+    required this.columns,
+    required this.tileWidth,
+    required this.tileHeight,
+    required this.crossAxisSpacing,
+    required this.mainAxisSpacing,
+  });
+
+  final int columns;
+  final double tileWidth;
+  final double tileHeight;
+  final double crossAxisSpacing;
+  final double mainAxisSpacing;
+}
+
+/// Resolves grid geometry for a viewport [width] logical pixels wide.
+ProductGridMetrics resolveProductGridMetrics({
+  required AppDropBuildEnv env,
+  required ProductGridTileStyle style,
+  required double width,
+  required double spacingDp,
+  bool carousel = false,
+}) {
+  final spacing = env.r.dp(spacingDp);
+  final maxTileW = env.r.dp(kProductGridMaxTileDp);
+
+  final int columns;
+  final double tileWidth;
+  if (carousel) {
+    columns = 1;
+    tileWidth = maxTileW.clamp(120.0, width * 0.48);
+  } else {
+    columns = (width / maxTileW).floor().clamp(2, 3);
+    tileWidth = (width - spacing * (columns - 1)) / columns;
+  }
+
+  return ProductGridMetrics(
+    columns: columns,
+    tileWidth: tileWidth,
+    tileHeight: style.tileHeight(env, tileWidth),
+    crossAxisSpacing: spacing,
+    mainAxisSpacing: spacing * 0.65,
+  );
+}
+
+/// Builds one product-grid tile.
+///
+/// Public so a paginated sliver grid renders tiles identical to the inline
+/// [buildProductGrid].
+Widget buildProductGridTile({
+  required BuildContext context,
+  required Map<String, dynamic> item,
+  required WidgetNode node,
+  required AppDropBuildEnv env,
+  required ProductGridTileStyle style,
+  required ProductGridMetrics metrics,
+  required bool horizontalRow,
+}) {
+  return _buildProductGridTile(
+    context: context,
+    item: item,
+    node: node,
+    env: env,
+    showAddToCart: style.showAddToCart,
+    addToCartTitle: style.addToCartTitle,
+    addToCartIsOutlined: style.addToCartIsOutlined,
+    addToCartShape: style.addToCartShape,
+    addToCartTitleSize: style.addToCartTitleSize,
+    addToCartCtaColor: style.addToCartCtaColor,
+    addToCartCtaFontColor: style.addToCartCtaFontColor,
+    tileW: metrics.tileWidth,
+    tileH: metrics.tileHeight,
+    radiusDp: style.radiusDp,
+    horizontalRow: horizontalRow,
+  );
 }
 
 Widget _buildProductGridTile({
@@ -64,6 +253,7 @@ Widget _buildProductGridTile({
   final addToCartTextColor = addToCartCtaFontColor;
   final pb = AppDropThemeScope.maybeOf(context)?.productBlock ??
       const <String, dynamic>{};
+  final cardView = productBlockThemeBool(pb, 'card_view', true);
   final cardBg = parseHexColor(
         (pb['card_bg_color'] ?? pb['image_bg_color'] ?? '#FFFFFF').toString(),
       ) ??
@@ -134,10 +324,19 @@ Widget _buildProductGridTile({
     required Widget child,
     Widget? bottom,
   }) {
+    if (!cardView) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: child),
+          if (bottom != null) bottom,
+        ],
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         borderRadius: radiusPx,
-        boxShadow: kAppDropComponentShadows,
+        boxShadow: appDropBlockShadowsOf(context),
       ),
       child: ClipRRect(
         borderRadius: radiusPx,
@@ -259,8 +458,6 @@ Widget buildProductGrid(
   final onHomePage = env.showProductGridHomeTitle;
   final showCollectionHeading =
       onHomePage && node.b('showCollectionHeading', def: true);
-  final addToCartTitle = _addToCartTitle(node);
-  final addToCartTitleSize = node.d('addToCartTitleSize', def: 16);
 
   final showGridTitle = onHomePage && node.b('showGridTitle', def: false);
   final showViewAllButton =
@@ -269,6 +466,10 @@ Widget buildProductGrid(
   final resolvedTitle =
       gridTitleText.isNotEmpty ? gridTitleText : collectionHeading;
   final gridTitleFontVariation = node.s('gridTitleFontVariation', def: 'large');
+  final gridTitleFontSize = node.d('gridTitleFontSize', def: 0);
+  final gridTitleFontWeight = _gridTitleFontWeight(
+    node.s('gridTitleFontWeight', def: 'bold'),
+  );
   final gridTitleAlign = node.s('gridTitleAlign', def: 'left').toLowerCase();
   final gridTitleColor =
       parseHexColor(node.s('gridTitleColor', def: '#000000')) ??
@@ -282,7 +483,6 @@ Widget buildProductGrid(
   final layoutMode = node.s('layoutMode', def: 'grid').toLowerCase();
   final isCarousel = layoutMode == 'carousel' || layoutMode == 'horizontal';
 
-  const double maxTileDp = 190;
   final useSectionHeader = showGridTitle || showViewAllButton;
   final legacyHeader = !useSectionHeader &&
       showCollectionHeading &&
@@ -290,107 +490,41 @@ Widget buildProductGrid(
 
   return LayoutBuilder(
     builder: (ctx, constraints) {
-      final spacing = env.r.dp(spacingDp);
-      final maxTileW = env.r.dp(maxTileDp);
       final width = constraints.maxWidth;
       if (width <= 0) {
         // Avoid layout exceptions/log spam in the first unconstrained pass.
         return const SizedBox.shrink();
       }
 
-      final scope = AppDropThemeScope.maybeOf(ctx);
-      final pb = scope?.productBlock ?? const <String, dynamic>{};
-      final showAddToCart =
-          _b(pb, 'add_to_cart', node.b('showAddToCart', def: false));
-      final buttonStyleRaw =
-          (pb['button_style'] ?? '').toString().toLowerCase().trim();
-      final buttonParts = buttonStyleRaw
-          .split(RegExp(r'[_\-\s]+'))
-          .where((e) => e.isNotEmpty)
-          .toList();
-      final addToCartShape =
-          buttonParts.isNotEmpty ? buttonParts.first : 'rounded';
-      final addToCartType = buttonParts.length > 1 ? buttonParts[1] : 'filled';
-      final addToCartIsOutlined = addToCartType == 'outlined';
-      final addToCartCtaColor = addToCartIsOutlined
-          ? (parseHexColor(
-                  (pb['outlined_button_bg'] ?? '#FF6A00').toString()) ??
-              const Color(0xFFFF6A00))
-          : (parseHexColor((pb['filled_button_bg'] ?? '#FF6A00').toString()) ??
-              const Color(0xFFFF6A00));
-      final addToCartCtaFontColor = addToCartIsOutlined
-          ? (parseHexColor(
-                  (pb['outlined_button_color'] ?? '#FF6A00').toString()) ??
-              const Color(0xFFFF6A00))
-          : (parseHexColor(
-                  (pb['filled_button_color'] ?? '#FFFFFF').toString()) ??
-              const Color(0xFFFFFFFF));
-
-      final radiusDp = _d(pb, 'corner_radius', 12);
-      final maxLines = _i(pb, 'max_lines', 2);
-      final showVendor = _b(pb, 'show_vendor', true);
-      // Rating & Review feature temporarily disabled
-      final showRating =
-          kRatingReviewFeatureEnabled && _b(pb, 'show_rating', true);
-      final showSwatches = _b(pb, 'show_swatches', true);
-      final aspectIdx = _i(pb, 'image_aspect_ratio_index', 0);
-      final aspect = _aspectFromIndex(aspectIdx);
-
-      final addToCartExtra = showAddToCart
-          ? env.r.dp(_gridAtcPaddingTopDp) +
-              env.r.dp(_gridAtcButtonDp) +
-              env.r.dp(_gridAtcPaddingBottomDp)
-          : 0.0;
-
-      late final double tileW;
-      late final double tileH;
-      late final int gridCols;
-
-      if (isCarousel) {
-        gridCols = 1;
-        tileW = maxTileW.clamp(120.0, width * 0.48);
-        final imageH = tileW / aspect;
-        final metaH = _estimateMetaHeight(
-            env, maxLines, showVendor, showRating, showSwatches);
-        tileH = imageH + metaH + addToCartExtra;
-      } else {
-        gridCols = (width / maxTileW).floor().clamp(2, 3);
-        tileW = (width - spacing * (gridCols - 1)) / gridCols;
-        final imageH = tileW / aspect;
-        final metaH = _estimateMetaHeight(
-            env, maxLines, showVendor, showRating, showSwatches);
-        tileH = imageH + metaH + addToCartExtra;
-      }
-
-      final mainGap = spacing * 0.65;
+      final style = ProductGridTileStyle.resolve(ctx, node);
+      final metrics = resolveProductGridMetrics(
+        env: env,
+        style: style,
+        width: width,
+        spacingDp: spacingDp,
+        carousel: isCarousel,
+      );
 
       Widget grid;
       if (isCarousel) {
         grid = SizedBox(
-          height: tileH,
+          height: metrics.tileHeight,
           child: ListView.separated(
             clipBehavior: Clip.none,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
             itemCount: itemsRaw.length,
-            separatorBuilder: (_, __) => SizedBox(width: spacing),
+            separatorBuilder: (_, __) =>
+                SizedBox(width: metrics.crossAxisSpacing),
             itemBuilder: (c, i) {
               final item = Map<String, dynamic>.from(itemsRaw[i] as Map);
-              return _buildProductGridTile(
+              return buildProductGridTile(
                 context: c,
                 item: item,
                 node: node,
                 env: env,
-                showAddToCart: showAddToCart,
-                addToCartTitle: addToCartTitle,
-                addToCartIsOutlined: addToCartIsOutlined,
-                addToCartShape: addToCartShape,
-                addToCartTitleSize: addToCartTitleSize,
-                addToCartCtaColor: addToCartCtaColor,
-                addToCartCtaFontColor: addToCartCtaFontColor,
-                tileW: tileW,
-                tileH: tileH,
-                radiusDp: radiusDp,
+                style: style,
+                metrics: metrics,
                 horizontalRow: true,
               );
             },
@@ -402,28 +536,20 @@ Widget buildProductGrid(
           physics: const NeverScrollableScrollPhysics(),
           itemCount: itemsRaw.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: gridCols,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: mainGap,
-            mainAxisExtent: tileH,
+            crossAxisCount: metrics.columns,
+            crossAxisSpacing: metrics.crossAxisSpacing,
+            mainAxisSpacing: metrics.mainAxisSpacing,
+            mainAxisExtent: metrics.tileHeight,
           ),
           itemBuilder: (c, i) {
             final item = Map<String, dynamic>.from(itemsRaw[i] as Map);
-            return _buildProductGridTile(
+            return buildProductGridTile(
               context: c,
               item: item,
               node: node,
               env: env,
-              showAddToCart: showAddToCart,
-              addToCartTitle: addToCartTitle,
-              addToCartIsOutlined: addToCartIsOutlined,
-              addToCartShape: addToCartShape,
-              addToCartTitleSize: addToCartTitleSize,
-              addToCartCtaColor: addToCartCtaColor,
-              addToCartCtaFontColor: addToCartCtaFontColor,
-              tileW: tileW,
-              tileH: tileH,
-              radiusDp: radiusDp,
+              style: style,
+              metrics: metrics,
               horizontalRow: false,
             );
           },
@@ -434,8 +560,10 @@ Widget buildProductGrid(
       if (useSectionHeader &&
           (showGridTitle && resolvedTitle.isNotEmpty || showViewAllButton)) {
         final titleStyle = TextStyle(
-          fontSize: _titleSpForVariation(gridTitleFontVariation, env),
-          fontWeight: FontWeight.w700,
+          fontSize: gridTitleFontSize > 0
+              ? env.r.sp(gridTitleFontSize, min: 11, max: 22)
+              : _titleSpForVariation(gridTitleFontVariation, env),
+          fontWeight: gridTitleFontWeight,
           color: gridTitleColor,
         );
         final showTitleRow = showGridTitle && resolvedTitle.isNotEmpty;
