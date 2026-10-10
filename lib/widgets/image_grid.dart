@@ -159,7 +159,8 @@ Widget buildImageGrid(
         final width = constraints.maxWidth;
         if (width <= 0) return const SizedBox.shrink();
 
-        final tileW = env.r.dp(maxTile).clamp(100.0, width * 0.55);
+        final upper = width * 0.55 < 1 ? 1.0 : width * 0.55;
+        final tileW = env.r.dp(maxTile).clamp(1.0, upper);
         final nameExtra = _nameBlockHeight(env, nameFontSize, showNames);
         final rowH = imageH + nameExtra;
 
@@ -188,7 +189,7 @@ Widget buildImageGrid(
       final width = constraints.maxWidth;
       if (width <= 0) return const SizedBox.shrink();
 
-      final cols = (width / env.r.dp(maxTile)).floor().clamp(2, 4);
+      final cols = (width / env.r.dp(maxTile)).floor().clamp(2, 6);
       final tileW = (width - spacingPx * (cols - 1)) / cols;
       final nameExtra = _nameBlockHeight(env, nameFontSize, showNames);
       final tileH = imageH + nameExtra;

@@ -21,6 +21,7 @@ bool mediaBlockVerticalPaddingEnabled(WidgetNode node) =>
 bool isMediaPaddingToggleBlock(WidgetNode node) {
   final type = node.type.toLowerCase().trim();
   return type == 'image_banner' ||
+      type == 'image_grid' ||
       type == 'video' ||
       type == 'pdp_product_image' ||
       type == 'expandable_info' ||

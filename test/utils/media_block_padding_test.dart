@@ -23,4 +23,18 @@ void main() {
     expect(mediaBlockHorizontalPaddingEnabled(node), isTrue);
     expect(mediaBlockVerticalPaddingEnabled(node), isTrue);
   });
+
+  test('image_grid supports horizontal and vertical padding toggles', () {
+    final node = WidgetNode(
+      type: 'image_grid',
+      props: {
+        'horizontalPadding': false,
+        'verticalPadding': true,
+      },
+    );
+
+    expect(isMediaPaddingToggleBlock(node), isTrue);
+    expect(mediaBlockHorizontalPaddingEnabled(node), isFalse);
+    expect(mediaBlockVerticalPaddingEnabled(node), isTrue);
+  });
 }

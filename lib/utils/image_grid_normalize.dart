@@ -21,6 +21,8 @@ void normalizeImageGridProps(Map<String, dynamic> props) {
   preferCamel('tile_aspect_ratio', 'tileAspectRatio');
   preferCamel('image_bg_color', 'imageBgColor');
   preferCamel('image_redirects', 'imageRedirects');
+  preferCamel('horizontal_padding', 'horizontalPadding');
+  preferCamel('vertical_padding', 'verticalPadding');
 
   // Legacy: derive tile height from aspect ratio + max width when height is missing.
   if (props['tileHeightDp'] == null) {

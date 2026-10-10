@@ -29,6 +29,7 @@ bool _usesFullBleedPdpBlock(WidgetNode node) {
       return true;
     case 'custom_block':
     case 'image_banner':
+    case 'image_grid':
     case 'video':
     case 'pdp_product_image':
     case 'expandable_info':
