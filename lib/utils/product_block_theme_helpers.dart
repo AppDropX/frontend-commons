@@ -1,5 +1,33 @@
 import 'package:flutter/widgets.dart';
 
+import '../product/product_variant_model.dart';
+import '../src/responsive.dart';
+import 'color.dart';
+
+/// Theme API stores newer product-block options under `config` because
+/// top-level keys outside the schema are rejected. Block data may still
+/// set the same key at the top level; `config` wins when both exist.
+String productBlockSetting(
+  Map<String, dynamic> block,
+  String key,
+  String fallback,
+) {
+  final config = block['config'];
+  if (config is Map) {
+    final nested = config[key];
+    if (nested != null) {
+      final text = nested.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+  }
+  final top = block[key];
+  if (top != null) {
+    final text = top.toString().trim();
+    if (text.isNotEmpty) return text;
+  }
+  return fallback;
+}
+
 bool productBlockThemeBool(Map<String, dynamic> merged, String key, bool def) {
   final v = merged[key];
   if (v is bool) return v;
@@ -10,8 +38,124 @@ bool productBlockThemeBool(Map<String, dynamic> merged, String key, bool def) {
 String displayProductTitle(String title, bool upperCase) =>
     upperCase ? title.toUpperCase() : title;
 
+double productTitleFontSize(String size, R r) {
+  final normalized = size.trim().toLowerCase();
+  if (normalized == 'large') return r.sp(16, min: 14, max: 20);
+  if (normalized == 'small') return r.sp(12, min: 11, max: 14);
+  return r.sp(14, min: 12, max: 16);
+}
+
+double productCtaFontSize(String size, R r) {
+  final normalized = size.trim().toLowerCase();
+  if (normalized == 'large') return r.sp(14, min: 13, max: 15);
+  if (normalized == 'small') return r.sp(12, min: 11, max: 13);
+  return r.sp(13, min: 12, max: 14);
+}
+
+FontWeight productCtaFontWeight(String raw) {
+  final normalized =
+      raw.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  switch (normalized) {
+    case 'bold':
+      return FontWeight.w800;
+    case 'semibold':
+      return FontWeight.w600;
+    case 'regular':
+    default:
+      return FontWeight.w400;
+  }
+}
+
+bool productBlockSettingBool(
+  Map<String, dynamic> block,
+  String key,
+  bool fallback,
+) {
+  final config = block['config'];
+  dynamic raw;
+  if (config is Map && config.containsKey(key)) {
+    raw = config[key];
+  } else if (block.containsKey(key)) {
+    raw = block[key];
+  }
+  if (raw == null) return fallback;
+  if (raw is bool) return raw;
+  if (raw is num) return raw != 0;
+  final text = raw.toString().trim().toLowerCase();
+  if (text == 'true' || text == '1') return true;
+  if (text == 'false' || text == '0') return false;
+  return fallback;
+}
+
+/// Outlined vs filled comes from `button_type`. Older themes only stored it
+/// inside `button_style` (`rounded_outlined`).
+/// Label and colors for a product card Add to cart button when the product
+/// is sold out. Null while the product can still be bought.
+class ProductSoldOutCta {
+  const ProductSoldOutCta({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+}
+
+ProductSoldOutCta? productSoldOutCta(
+  Map<String, dynamic> productBlock,
+  Map<String, dynamic> product,
+) {
+  if (catalogProductIsInStock(product)) return null;
+  final label = productBlockSetting(productBlock, 'sold_out_cta_text', 'Sold Out');
+  return ProductSoldOutCta(
+    label: label.trim().isEmpty ? 'Sold Out' : label,
+    background: parseHexColor(
+          productBlockSetting(productBlock, 'sold_out_button_bg', '#9CA3AF'),
+        ) ??
+        const Color(0xFF9CA3AF),
+    foreground: parseHexColor(
+          productBlockSetting(productBlock, 'sold_out_button_color', '#FFFFFF'),
+        ) ??
+        const Color(0xFFFFFFFF),
+  );
+}
+
+bool productBlockButtonOutlined(Map<String, dynamic> block) {
+  final type = productBlockSetting(block, 'button_type', '').toLowerCase();
+  if (type == 'outlined') return true;
+  if (type == 'filled' || type == 'text') return false;
+  final style = (block['button_style'] ?? '').toString().toLowerCase();
+  return style.contains('outlined');
+}
+
+/// Corner radius in logical pixels. `config.button_corner_radius` wins.
+/// Older Corner / Rounded / Blunt styles map to 0 / 8 / 24.
+double productButtonCornerRadiusDp(Map<String, dynamic> block) {
+  final raw = productBlockSetting(block, 'button_corner_radius', '');
+  final parsed = double.tryParse(raw);
+  if (parsed != null) return parsed.clamp(0, 24);
+  final style = (block['button_style'] ?? '').toString().toLowerCase();
+  final shape = style.split(RegExp(r'[_\-\s]+')).firstWhere(
+        (part) => part.isNotEmpty,
+        orElse: () => '',
+      );
+  switch (shape) {
+    case 'blunt':
+    case 'pill':
+      return 24;
+    case 'rounded':
+      return 8;
+    default:
+      return 0;
+  }
+}
+
 FontWeight titleFontWeightFromVariation(String raw) {
-  switch (raw.trim().toLowerCase()) {
+  final normalized =
+      raw.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+  switch (normalized) {
     case 'bold':
       return FontWeight.w700;
     case 'semibold':

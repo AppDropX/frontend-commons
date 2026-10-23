@@ -39,6 +39,8 @@ export 'pdp/pdp_product_scope.dart';
 export 'pdp/pdp_page_enrichment.dart';
 export 'pdp/pdp_image_banner_visibility.dart';
 export 'plp/plp_image_banner_visibility.dart';
+export 'plp/plp_layout_scope.dart';
+export 'plp/sort_filter_visibility.dart';
 export 'pdp/pdp_page_chrome.dart';
 export 'pdp/pdp_overlay_metrics.dart';
 export 'pdp/pdp_overlay_button.dart';

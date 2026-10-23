@@ -22,7 +22,7 @@ class AppDropThemeData {
     final family = fontFamily.trim();
     final style = TextStyle(
       fontSize: fontSize,
-      fontWeight: fontWeight,
+      fontWeight: _fileWeight(family, fontWeight),
       color: color,
     );
     switch (family) {
@@ -75,6 +75,31 @@ class AppDropThemeData {
       iconTheme: IconThemeData(color: content),
       primaryIconTheme: IconThemeData(color: content),
     );
+  }
+
+  @visibleForTesting
+  static FontWeight fontFileWeight(String family, FontWeight weight) =>
+      _fileWeight(family, weight);
+
+  /// Maps inspector weights onto files the family actually ships.
+  ///
+  /// Lato has Regular (400), Bold (700), and Black (900), and no Semi Bold.
+  /// Sending 600 used to fall back to Regular, so Semi Bold matched Regular.
+  /// Roboto has Medium (500) but no 600 file; 600 would otherwise match Bold.
+  static FontWeight _fileWeight(String family, FontWeight weight) {
+    switch (family.trim()) {
+      case 'Lato':
+        if (weight == FontWeight.w500 || weight == FontWeight.w600) {
+          return FontWeight.w700;
+        }
+        if (weight.value >= FontWeight.w700.value) return FontWeight.w900;
+        return weight;
+      case 'Roboto':
+        if (weight == FontWeight.w600) return FontWeight.w500;
+        return weight;
+      default:
+        return weight;
+    }
   }
 
   static TextTheme _textTheme(String font, TextTheme base) {

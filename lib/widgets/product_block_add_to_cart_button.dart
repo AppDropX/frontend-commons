@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../src/responsive.dart';
 import '../theme/appdrop_theme_scope.dart';
 import '../utils/color.dart';
+import '../utils/product_block_theme_helpers.dart';
 
 /// Compact Add to Cart button styled like [buildProductBlock] CTAs.
 class ProductBlockAddToCartButton extends StatelessWidget {
@@ -29,13 +31,7 @@ class ProductBlockAddToCartButton extends StatelessWidget {
     final pb = cfg?.productBlock ?? const <String, dynamic>{};
 
     String s(String k, String def) => (pb[k] ?? def).toString();
-    final buttonStyleRaw = s('button_style', 'sharp_filled').toLowerCase();
-    final buttonParts = buttonStyleRaw.split(RegExp(r'[_\-\s]+'));
-    final buttonShape =
-        buttonParts.isNotEmpty ? buttonParts.first : 'sharp';
-    final buttonType =
-        buttonParts.length > 1 ? buttonParts[1] : 'filled';
-    final isOutlined = buttonType == 'outlined';
+    final isOutlined = productBlockButtonOutlined(pb);
 
     final filledButtonBg = parseHexColor(s('filled_button_bg', '#B63E3E')) ??
         const Color(0xFFB63E3E);
@@ -50,7 +46,7 @@ class ProductBlockAddToCartButton extends StatelessWidget {
     final bg = isOutlined ? Colors.transparent : filledButtonBg;
     final fg = isOutlined ? outlinedButtonColor : filledButtonColor;
     final borderColor = isOutlined ? outlinedButtonBg : filledButtonBg;
-    final radius = _radius(buttonShape, r);
+    final radius = r.dp(productButtonCornerRadiusDp(pb));
     final active = enabled && !isLoading && onTap != null;
 
     return Material(
@@ -71,14 +67,7 @@ class ProductBlockAddToCartButton extends StatelessWidget {
           ),
           child: Center(
             child: isLoading
-                ? SizedBox(
-                    width: r.dp(18),
-                    height: r.dp(18),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: fg,
-                    ),
-                  )
+                ? CupertinoActivityIndicator(radius: r.dp(8))
                 : Text(
                     label,
                     style: TextStyle(
@@ -91,19 +80,5 @@ class ProductBlockAddToCartButton extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  double _radius(String shape, R r) {
-    switch (shape) {
-      case 'rounded':
-        return r.dp(8);
-      case 'blunt':
-      case 'pill':
-        return r.dp(999);
-      case 'corner':
-      case 'sharp':
-      default:
-        return 0;
-    }
   }
 }

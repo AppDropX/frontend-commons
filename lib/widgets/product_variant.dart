@@ -5,6 +5,7 @@ import '../product/product_variant_model.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
 import 'variant_choice_chips.dart';
+import 'variant_dropdown.dart';
 
 /// API-driven variant selector for PDP. Renders Material 3 choice chips from
 /// [product]['variants']; selection updates [PdpProductScope] for live pricing.
@@ -17,12 +18,10 @@ Widget buildProductVariant(BuildContext context, WidgetNode node, AppDropBuildEn
   final variants = scope?.variants ??
       (product != null ? parseProductVariants(product) : const <ProductVariantOption>[]);
 
+  if (variants.length <= 1) return const SizedBox.shrink();
+
   final showOutOfStock = node.b('showOutOfStockVariants', def: true);
-  final visibleCount = [
-    for (final v in variants)
-      if (showOutOfStock || !v.isOutOfStock) v,
-  ].length;
-  if (visibleCount <= 1) return const SizedBox.shrink();
+  final dropdown = node.s('variantStyle', def: 'buttons') == 'dropdown';
 
   final apiGroupLabel = scope?.variantGroupLabel ??
       (product != null ? productVariantGroupLabel(product) : 'Variant');
@@ -36,7 +35,7 @@ Widget buildProductVariant(BuildContext context, WidgetNode node, AppDropBuildEn
     return legacy;
   }();
   final groupLabel = customTitle.isNotEmpty ? customTitle : apiGroupLabel;
-  final selectedIndex = scope?.selectedIndex ?? 0;
+  final selectedIndex = scope?.selectedIndex ?? -1;
   final labelColor = parseHexColor(node.s('labelColor', def: '#111827')) ??
       const Color(0xFF111827);
   final innerTextColor =
@@ -68,6 +67,45 @@ Widget buildProductVariant(BuildContext context, WidgetNode node, AppDropBuildEn
         threshold: remainingThreshold,
       ),
   ];
+
+  void select(int index) {
+    if (index < 0 || index >= variants.length) return;
+    if (variants[index].isOutOfStock) return;
+    scope?.selectVariant(index);
+    final selected = variants[index];
+    env.dispatchAction(context, {
+      'type': 'select_variant',
+      'productId': product?['productId'] ?? product?['id'],
+      'variantId': selected.id,
+      'value': selected.label,
+      'index': index,
+    });
+  }
+
+  if (dropdown) {
+    final typedHint = node.s('dropdownHint').trim();
+    final unavailable = node.s('dropdownUnavailableText', def: 'Unavailable').trim();
+    return VariantDropdown(
+      key: ValueKey('variant-dropdown-${variants.map((v) => v.id).join('|')}'),
+      hint: typedHint.isNotEmpty ? typedHint : 'Choose a $apiGroupLabel',
+      variants: variants,
+      unavailableLabel: unavailable,
+      hintFontVariation: node.s('dropdownHintFontVariation', def: 'regular'),
+      hintSize: node.d('dropdownHintSize', def: 14).clamp(12, 20).toDouble(),
+      optionFontVariation: node.s('dropdownOptionFontVariation', def: 'regular'),
+      optionSize: node.d('dropdownOptionSize', def: 16).clamp(12, 20).toDouble(),
+      cornerRadius: node.d('dropdownCornerRadius', def: 8).clamp(0, 24).toDouble(),
+      r: env.r,
+      onSelect: select,
+    );
+  }
+
+  final visibleCount = [
+    for (final v in variants)
+      if (showOutOfStock || !v.isOutOfStock) v,
+  ].length;
+  if (visibleCount <= 1) return const SizedBox.shrink();
+
   // Horizontal inset comes from [AppDropRenderer.contentHorizontalPadding] on PDP.
   return VariantChoiceChipWrap(
     groupLabel: groupLabel,
@@ -86,18 +124,6 @@ Widget buildProductVariant(BuildContext context, WidgetNode node, AppDropBuildEn
     selectedForegroundColor: selectedForegroundColor,
     outOfStockFlags: [for (final v in variants) v.isOutOfStock],
     showOutOfStock: showOutOfStock,
-    onSelect: (index) {
-      if (index < 0 || index >= variants.length) return;
-      if (variants[index].isOutOfStock) return;
-      scope?.selectVariant(index);
-      final selected = variants[index];
-      env.dispatchAction(context, {
-        'type': 'select_variant',
-        'productId': product?['productId'] ?? product?['id'],
-        'variantId': selected.id,
-        'value': selected.label,
-        'index': index,
-      });
-    },
+    onSelect: select,
   );
 }

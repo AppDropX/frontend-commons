@@ -28,6 +28,7 @@ Widget buildWishlistItem(BuildContext context, WidgetNode node, AppDropBuildEnv 
     productMap: productMap,
     productId: productId,
     fallbackTitle: productTitle,
+    showShadow: blockShadowEnabled(node),
   );
 }
 
@@ -38,6 +39,7 @@ class _WishlistItemWidget extends StatelessWidget {
     required this.productMap,
     required this.productId,
     required this.fallbackTitle,
+    required this.showShadow,
   });
 
   final R r;
@@ -45,6 +47,7 @@ class _WishlistItemWidget extends StatelessWidget {
   final Map<String, dynamic>? productMap;
   final String productId;
   final String fallbackTitle;
+  final bool showShadow;
 
   static const Color _cardColor = Color(0xFFFFFFFF);
   static const Color _borderColor = Color(0xFFEBEDF0);
@@ -112,7 +115,7 @@ class _WishlistItemWidget extends StatelessWidget {
           color: _cardColor,
           borderRadius: radius,
           border: Border.all(color: _borderColor),
-          boxShadow: kAppDropCartItemShadows,
+          boxShadow: showShadow ? kAppDropCartItemShadows : const [],
         ),
         child: Padding(
           padding: EdgeInsets.all(r.dp(_innerPadDp)),

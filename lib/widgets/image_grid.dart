@@ -70,7 +70,7 @@ Widget buildImageGrid(
     return Container(
       decoration: BoxDecoration(
         borderRadius: br,
-        boxShadow: appDropBlockShadowsOf(context),
+        boxShadow: appDropBlockShadowsFor(context, gridNode),
       ),
       child: ClipRRect(
         borderRadius: br,
@@ -167,6 +167,7 @@ Widget buildImageGrid(
         return SizedBox(
           height: rowH,
           child: ListView.separated(
+            padding: EdgeInsets.zero,
             clipBehavior: Clip.none,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
@@ -195,6 +196,10 @@ Widget buildImageGrid(
       final tileH = imageH + nameExtra;
 
       return GridView.builder(
+        // Embedded in the page scroll view. A null padding lets this grid
+        // take the device safe-area inset and leave a gap under the block.
+        padding: EdgeInsets.zero,
+        primary: false,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         cacheExtent: width,

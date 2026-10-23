@@ -61,7 +61,7 @@ Widget buildCtaButton(BuildContext context, WidgetNode node, AppDropBuildEnv env
       color: isOutlined ? const Color(0x00000000) : ctaColor,
       borderRadius: BorderRadius.circular(radius),
       border: isOutlined ? Border.all(color: ctaColor, width: 2) : null,
-      boxShadow: appDropBlockShadowsOf(context),
+      boxShadow: appDropBlockShadowsFor(context, node),
     ),
     alignment: Alignment.center,
     child: Text(

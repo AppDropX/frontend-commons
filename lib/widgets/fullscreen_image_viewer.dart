@@ -1,7 +1,9 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/network_image_url.dart';
+import '../utils/shopify_image_url.dart';
 
 Future<void> openFullscreenImageViewer(
   BuildContext context, {
@@ -10,8 +12,7 @@ Future<void> openFullscreenImageViewer(
 }) async {
   final normalized = <String>[
     for (final image in images)
-      if (sanitizedNetworkImageUrl(image) != null)
-        sanitizedNetworkImageUrl(image)!,
+      if (sanitizedNetworkImageUrl(image) != null) hdProductImageUrl(image),
   ];
   if (normalized.isEmpty) return;
   final clampedIndex = initialIndex.clamp(0, normalized.length - 1);
@@ -75,7 +76,18 @@ class _FullscreenImageViewerState extends State<_FullscreenImageViewer> {
                     child: Image.network(
                       widget.images[i],
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const SizedBox.expand(),
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const CupertinoActivityIndicator(
+                          radius: 16,
+                          color: Colors.white,
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => const Icon(
+                        FluentIcons.image_off_24_regular,
+                        color: Colors.white70,
+                        size: 36,
+                      ),
                     ),
                   ),
                 );

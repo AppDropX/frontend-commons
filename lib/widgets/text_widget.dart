@@ -4,26 +4,33 @@ import '../theme_library.dart';
 import '../transitions/pdp_enter_animation.dart';
 import '../utils/color.dart';
 
-Widget buildTextWidget(BuildContext context, WidgetNode node, AppDropBuildEnv env) {
+Widget buildTextWidget(
+    BuildContext context, WidgetNode node, AppDropBuildEnv env) {
   final slot = pdpStaggerSlotFromString(node.s('pdpStaggerSlot', def: ''));
-  final pdpScope = slot == PdpStaggerSlot.price
-      ? PdpProductScope.maybeOf(context)
-      : null;
-  final text = pdpScope != null && pdpScope.formattedPriceLine.isNotEmpty
-      ? pdpScope.formattedPriceLine
-      : node.s('text', def: '');
+  final pdpScope =
+      slot == PdpStaggerSlot.price ? PdpProductScope.maybeOf(context) : null;
+  final priceCfg = ProductPriceDisplayConfig.fromContext(context);
+  final priceLine =
+      pdpScope?.formattedPriceLine(
+        prefix: priceCfg.prefix,
+        suffix: priceCfg.priceSuffix,
+      ) ??
+      '';
+  final text = priceLine.isNotEmpty ? priceLine : node.s('text', def: '');
   final size = node.d('sizeSp', def: 14);
   final weight = node.s('weight', def: 'regular').toLowerCase();
   final scope = AppDropThemeScope.maybeOf(context);
   final fallback = scope?.appStyling.fontIconColor ?? const Color(0xFF111827);
   final color = parseHexColor(node.s('color', def: '')) ?? fallback;
+  final fontFamily = scope?.appStyling.fontFamily ?? 'Poppins';
+  final normalized = weight.replaceAll(RegExp(r'[\s_-]+'), '');
 
   final alignStr = node.s('align', def: 'left').toLowerCase();
   final align = alignStr == 'center'
       ? TextAlign.center
       : alignStr == 'right'
-      ? TextAlign.right
-      : TextAlign.left;
+          ? TextAlign.right
+          : TextAlign.left;
 
   final maxLines = node.i('maxLines', def: 0);
   final overflow = node.s('overflow', def: 'ellipsis').toLowerCase();
@@ -33,13 +40,14 @@ Widget buildTextWidget(BuildContext context, WidgetNode node, AppDropBuildEnv en
     textAlign: align,
     maxLines: maxLines <= 0 ? null : maxLines,
     overflow: overflow == 'clip' ? TextOverflow.clip : TextOverflow.ellipsis,
-    style: TextStyle(
+    style: AppDropThemeData.textStyle(
+      fontFamily: fontFamily,
       fontSize: env.r.sp(size, min: 10, max: 30),
-      fontWeight: weight == 'bold'
+      fontWeight: normalized == 'bold'
           ? FontWeight.w700
-          : weight == 'semibold'
-          ? FontWeight.w600
-          : FontWeight.w400,
+          : normalized == 'semibold'
+              ? FontWeight.w600
+              : FontWeight.w400,
       color: color,
     ),
   );

@@ -7,8 +7,8 @@ class PageToolbarConfig {
   /// Leading: [ToolbarLeft.none], [ToolbarLeft.sideNavigation], [ToolbarLeft.back].
   final String left;
 
-  /// Center: home/custom — [ToolbarCenter.text], [ToolbarCenter.logo] (reserved).
-  /// PLP — [ToolbarCenter.collectionSearch].
+  /// Center: home/custom — [ToolbarCenter.text], [ToolbarCenter.logo].
+  /// PLP also allows [ToolbarCenter.collectionSearch].
   final String center;
 
   /// Shown when [center] is [ToolbarCenter.text].
@@ -50,6 +50,9 @@ class PageToolbarConfig {
   /// Home only: push center + right layout to every other page.
   final bool syncWithAllPages;
 
+  /// Optional second-row search field under the title / logo row.
+  final ToolbarSearchBarConfig searchBar;
+
   const PageToolbarConfig({
     this.left = ToolbarLeft.sideNavigation,
     this.center = ToolbarCenter.text,
@@ -71,6 +74,7 @@ class PageToolbarConfig {
     this.toolbarFont = '',
     this.screenBg = '',
     this.syncWithAllPages = false,
+    this.searchBar = ToolbarSearchBarConfig.defaults,
   });
 
   static const PageToolbarConfig homeDefaults = PageToolbarConfig(
@@ -131,6 +135,8 @@ class PageToolbarConfig {
 
   bool get isTitleLeftAligned =>
       titleAlignment == ToolbarTitleAlignment.left;
+
+  bool get showsInlineSearchBar => searchBar.visible;
 
   bool get hasRightSideNavigation =>
       rightSlot1 == ToolbarRight.sideNavigation ||
@@ -248,6 +254,7 @@ class PageToolbarConfig {
     String? toolbarFont,
     String? screenBg,
     bool? syncWithAllPages,
+    ToolbarSearchBarConfig? searchBar,
   }) {
     return PageToolbarConfig(
       left: left ?? this.left,
@@ -270,6 +277,7 @@ class PageToolbarConfig {
       toolbarFont: toolbarFont ?? this.toolbarFont,
       screenBg: screenBg ?? this.screenBg,
       syncWithAllPages: syncWithAllPages ?? this.syncWithAllPages,
+      searchBar: searchBar ?? this.searchBar,
     );
   }
 
@@ -289,6 +297,7 @@ class PageToolbarConfig {
       rightSlot1IconUrl: source.rightSlot1IconUrl,
       rightSlot2IconUrl: source.rightSlot2IconUrl,
       rightSlot3IconUrl: source.rightSlot3IconUrl,
+      searchBar: source.searchBar,
       syncWithAllPages: false,
     );
   }
@@ -306,7 +315,8 @@ class PageToolbarConfig {
         rightSlot3Icon == other.rightSlot3Icon &&
         rightSlot1IconUrl == other.rightSlot1IconUrl &&
         rightSlot2IconUrl == other.rightSlot2IconUrl &&
-        rightSlot3IconUrl == other.rightSlot3IconUrl;
+        rightSlot3IconUrl == other.rightSlot3IconUrl &&
+        searchBar == other.searchBar;
   }
 
   /// Cache key for per-page color overlays (empty = inherit global styling).
@@ -333,16 +343,29 @@ class PageToolbarConfig {
         'toolbarFont': toolbarFont,
         'screenBg': screenBg,
         'syncWithAllPages': syncWithAllPages,
+        'searchBar': searchBar.toJson(),
       };
 
   /// Stored user overrides; `null` means “use defaults for page type”.
   static PageToolbarConfig? decode(Map<String, dynamic>? json) {
     if (json == null || json.isEmpty) return null;
+    final logoUrl = json['centerLogoUrl'] as String? ?? '';
+    final rawCenter = json['center'] as String? ?? ToolbarCenter.text;
+    final legacyCenterSearch = rawCenter == ToolbarCenter.searchBar;
+    final center = legacyCenterSearch
+        ? (logoUrl.trim().isNotEmpty ? ToolbarCenter.logo : ToolbarCenter.text)
+        : rawCenter;
+    final nested = ToolbarSearchBarConfig.fromJson(
+      _mapFromJson(json['searchBar'] ?? json['search_bar']),
+    );
+    final showSearch = nested.visible ||
+        legacyCenterSearch ||
+        _boolFromJson(json['showSearchBar'] ?? json['show_search_bar']);
     return PageToolbarConfig(
       left: json['left'] as String? ?? ToolbarLeft.sideNavigation,
-      center: json['center'] as String? ?? ToolbarCenter.text,
+      center: center,
       centerText: json['centerText'] as String? ?? 'Home',
-      centerLogoUrl: json['centerLogoUrl'] as String? ?? '',
+      centerLogoUrl: logoUrl,
       titleAlignment: _titleAlignmentFromJson(json['titleAlignment']),
       rightSlot1: json['rightSlot1'] as String? ?? ToolbarRight.none,
       rightSlot2: json['rightSlot2'] as String? ?? ToolbarRight.cart,
@@ -359,6 +382,7 @@ class PageToolbarConfig {
       toolbarFont: _hexOrEmpty(json['toolbarFont'] ?? json['toolbar_font']),
       screenBg: _hexOrEmpty(json['screenBg'] ?? json['screen_bg']),
       syncWithAllPages: _boolFromJson(json['syncWithAllPages']),
+      searchBar: nested.copyWith(visible: showSearch),
     );
   }
 
@@ -390,7 +414,8 @@ class PageToolbarConfig {
           toolbarBg == other.toolbarBg &&
           toolbarFont == other.toolbarFont &&
           screenBg == other.screenBg &&
-          syncWithAllPages == other.syncWithAllPages;
+          syncWithAllPages == other.syncWithAllPages &&
+          searchBar == other.searchBar;
 
   @override
   int get hashCode => Object.hash(
@@ -415,6 +440,7 @@ class PageToolbarConfig {
           toolbarFont,
           screenBg,
           syncWithAllPages,
+          searchBar,
         ),
       );
 
@@ -450,6 +476,12 @@ class PageToolbarConfig {
     if (index == 1) return rightSlot1IconUrl.trim();
     if (index == 2) return rightSlot2IconUrl.trim();
     return rightSlot3IconUrl.trim();
+  }
+
+  PageToolbarConfig withSearchVisual({required String glyph, String url = ''}) {
+    return copyWith(
+      searchBar: searchBar.copyWith(icon: glyph, iconUrl: url),
+    );
   }
 
   PageToolbarConfig withLeftVisual({required String glyph, String url = ''}) {
@@ -494,6 +526,20 @@ bool _boolFromJson(dynamic raw) {
   return s == 'true' || s == '1';
 }
 
+Map<String, dynamic>? _mapFromJson(dynamic raw) {
+  if (raw is Map<String, dynamic>) return raw;
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  return null;
+}
+
+double? _readDouble(dynamic value) {
+  if (value is double) return value;
+  if (value is int) return value.toDouble();
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
 abstract class ToolbarLeft {
   static const none = 'none';
   static const sideNavigation = 'side_navigation';
@@ -505,6 +551,9 @@ abstract class ToolbarCenter {
   static const text = 'text';
   static const logo = 'logo';
   static const collectionSearch = 'collection_search';
+
+  /// Legacy center id. Decoded as [ToolbarSearchBarConfig.visible] instead.
+  static const searchBar = 'search_bar';
 }
 
 abstract class ToolbarTitleAlignment {
@@ -526,4 +575,144 @@ abstract class ToolbarRight {
     search,
     sideNavigation,
   ];
+}
+
+const String kToolbarSearchDefaultHint = 'What are you looking for?';
+const double kToolbarSearchDefaultCornerRadius = 8;
+const String kToolbarSearchDefaultBg = '#FFFFFF';
+const String kToolbarSearchDefaultBorderColor = '#E5E7EB';
+const String kToolbarSearchDefaultHintColor = '#9CA3AF';
+
+/// Style for the second-row toolbar search field.
+class ToolbarSearchBarConfig {
+  const ToolbarSearchBarConfig({
+    this.visible = false,
+    this.hintText = kToolbarSearchDefaultHint,
+    this.cornerRadius = kToolbarSearchDefaultCornerRadius,
+    this.backgroundColor = kToolbarSearchDefaultBg,
+    this.borderColor = kToolbarSearchDefaultBorderColor,
+    this.iconColor = '',
+    this.hintColor = kToolbarSearchDefaultHintColor,
+    this.icon = ToolbarGlyph.search,
+    this.iconUrl = '',
+  });
+
+  static const defaults = ToolbarSearchBarConfig();
+
+  /// When true, the search field sits under the title / logo row.
+  final bool visible;
+  final String hintText;
+  final double cornerRadius;
+  final String backgroundColor;
+  final String borderColor;
+
+  /// Filled suffix-button color. Empty inherits the theme accent.
+  final String iconColor;
+  final String hintColor;
+  final String icon;
+  final String iconUrl;
+
+  String get resolvedHint {
+    final t = hintText.trim();
+    return t.isEmpty ? kToolbarSearchDefaultHint : t;
+  }
+
+  String get resolvedIcon {
+    final g = icon.trim();
+    return g.isEmpty ? ToolbarGlyph.search : g;
+  }
+
+  String get resolvedIconUrl => iconUrl.trim();
+
+  ToolbarSearchBarConfig copyWith({
+    bool? visible,
+    String? hintText,
+    double? cornerRadius,
+    String? backgroundColor,
+    String? borderColor,
+    String? iconColor,
+    String? hintColor,
+    String? icon,
+    String? iconUrl,
+  }) {
+    return ToolbarSearchBarConfig(
+      visible: visible ?? this.visible,
+      hintText: hintText ?? this.hintText,
+      cornerRadius: cornerRadius ?? this.cornerRadius,
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+      borderColor: borderColor ?? this.borderColor,
+      iconColor: iconColor ?? this.iconColor,
+      hintColor: hintColor ?? this.hintColor,
+      icon: icon ?? this.icon,
+      iconUrl: iconUrl ?? this.iconUrl,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'visible': visible,
+        'hintText': hintText,
+        'cornerRadius': cornerRadius,
+        'backgroundColor': backgroundColor,
+        'borderColor': borderColor,
+        'iconColor': iconColor,
+        'hintColor': hintColor,
+        'icon': icon,
+        'iconUrl': iconUrl,
+      };
+
+  factory ToolbarSearchBarConfig.fromJson(Map<String, dynamic>? json) {
+    if (json == null || json.isEmpty) return defaults;
+    final hint =
+        (json['hintText'] ?? json['hint_text'] ?? '').toString().trim();
+    final bg = _hexOrEmpty(
+      json['backgroundColor'] ?? json['background_color'],
+    );
+    final borderColor = _hexOrEmpty(json['borderColor'] ?? json['border_color']);
+    final hintColor = _hexOrEmpty(json['hintColor'] ?? json['hint_color']);
+    final icon = (json['icon'] ?? json['glyph'] ?? '').toString().trim();
+    final radius = _readDouble(
+          json['cornerRadius'] ?? json['corner_radius'] ?? json['borderRadius'],
+        )?.clamp(0, 24).toDouble() ??
+        kToolbarSearchDefaultCornerRadius;
+    return ToolbarSearchBarConfig(
+      visible: _boolFromJson(json['visible']),
+      hintText: hint.isEmpty ? kToolbarSearchDefaultHint : hint,
+      cornerRadius: radius,
+      backgroundColor: bg.isEmpty ? kToolbarSearchDefaultBg : bg,
+      borderColor:
+          borderColor.isEmpty ? kToolbarSearchDefaultBorderColor : borderColor,
+      iconColor: _hexOrEmpty(json['iconColor'] ?? json['icon_color']),
+      hintColor: hintColor.isEmpty ? kToolbarSearchDefaultHintColor : hintColor,
+      icon: icon.isEmpty ? ToolbarGlyph.search : icon,
+      iconUrl: (json['iconUrl'] ?? json['icon_url'] ?? '').toString().trim(),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ToolbarSearchBarConfig &&
+          runtimeType == other.runtimeType &&
+          visible == other.visible &&
+          hintText == other.hintText &&
+          cornerRadius == other.cornerRadius &&
+          backgroundColor == other.backgroundColor &&
+          borderColor == other.borderColor &&
+          iconColor == other.iconColor &&
+          hintColor == other.hintColor &&
+          icon == other.icon &&
+          iconUrl == other.iconUrl;
+
+  @override
+  int get hashCode => Object.hash(
+        visible,
+        hintText,
+        cornerRadius,
+        backgroundColor,
+        borderColor,
+        iconColor,
+        hintColor,
+        icon,
+        iconUrl,
+      );
 }

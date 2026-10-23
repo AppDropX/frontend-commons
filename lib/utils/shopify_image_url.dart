@@ -6,6 +6,10 @@ import 'network_image_url.dart';
 /// with ~46 KB over the wire.
 const int kProductThumbnailWidth = 300;
 
+/// Shopify width for the PDP product photo. A 300 px thumbnail looks soft when
+/// it is painted across the full screen.
+const int kPdpProductImageWidth = 1600;
+
 /// Hosts that honour Shopify's `width` image transform.
 const List<String> _kShopifyCdnHostSuffixes = [
   'cdn.shopify.com',
@@ -55,6 +59,20 @@ const List<String> _kProductThumbnailKeys = [
   'thumbnailUrl',
   'thumbnail_url',
 ];
+
+/// Drops a Shopify `width` transform so a tap can open the original file.
+///
+/// Non-Shopify URLs are returned unchanged. Cards keep the narrowed thumbnail;
+/// the fullscreen viewer asks for this original.
+String hdProductImageUrl(String raw) {
+  final normalized = sanitizedNetworkImageUrl(raw);
+  if (normalized == null) return raw.trim();
+  if (!isShopifyCdnImageUrl(normalized)) return normalized;
+  final uri = Uri.parse(normalized);
+  if (!uri.queryParameters.containsKey('width')) return normalized;
+  final params = Map<String, String>.from(uri.queryParameters)..remove('width');
+  return uri.replace(queryParameters: params).toString();
+}
 
 /// Thumbnail URL for a product row, or `''` when the row has no usable image.
 ///

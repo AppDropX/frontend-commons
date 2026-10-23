@@ -250,6 +250,7 @@ void _presentCompactSnackBar(
   EdgeInsets? margin,
   bool alignTop = false,
   bool prominent = false,
+  bool includeBottomChrome = true,
   String? actionLabel,
   VoidCallback? onAction,
   ScaffoldMessengerState? messenger,
@@ -288,7 +289,8 @@ void _presentCompactSnackBar(
       alignTop ? MediaQuery.paddingOf(context).top + 12 : 0.0;
   final bottomPad = alignTop
       ? 0.0
-      : resolvedMargin.bottom + _overlayBottomChrome(context);
+      : resolvedMargin.bottom +
+          (includeBottomChrome ? _overlayBottomChrome(context) : 0);
 
   late final OverlayEntry entry;
   entry = OverlayEntry(
@@ -409,6 +411,8 @@ void showAppDropSnackBar(
   String? actionLabel,
   VoidCallback? onAction,
   int? messageMaxLines,
+  EdgeInsets? margin,
+  bool includeBottomChrome = true,
 }) {
   if (!context.mounted) return;
 
@@ -444,11 +448,13 @@ void showAppDropSnackBar(
     icon: snackIcon,
     duration: resolvedDuration,
     clearExisting: clearExisting,
-    margin: _snackBarMargin(
-      context,
-      alignTop: resolvedAlignTop,
-      prominent: resolvedProminent,
-    ),
+    margin: margin ??
+        _snackBarMargin(
+          context,
+          alignTop: resolvedAlignTop,
+          prominent: resolvedProminent,
+        ),
+    includeBottomChrome: includeBottomChrome,
     alignTop: resolvedAlignTop,
     prominent: resolvedProminent,
     actionLabel: actionLabel,
@@ -467,6 +473,39 @@ Color _cartAccentForSnack(BuildContext context, Color? override) {
     if (defaultColor != Colors.transparent) return defaultColor;
   }
   return const Color(0xFF54A685);
+}
+
+const String kProductSoldOutSnackMessage = 'This product is sold out';
+
+/// Motor vibration plus a haptic tick when a quantity stepper changes.
+void triggerQuantityChangeHaptic() {
+  if (kIsWeb) return;
+  try {
+    HapticFeedback.mediumImpact();
+  } catch (_) {}
+  unawaited(_pulseQuantityVibration());
+}
+
+Future<void> _pulseQuantityVibration() async {
+  try {
+    await _ensureWishlistVibratorCache();
+    if (_cachedHasVibrator != true) return;
+    const durationMs = 50;
+    if (_cachedHasAmplitudeControl == true) {
+      await Vibration.vibrate(duration: durationMs, amplitude: 180);
+    } else {
+      await Vibration.vibrate(duration: durationMs);
+    }
+  } catch (_) {}
+}
+
+/// Sold-out notice, anchored with the other bottom snack bars.
+void showProductSoldOutSnackBar(BuildContext context) {
+  showAppDropSnackBar(
+    context,
+    kProductSoldOutSnackMessage,
+    kind: AppDropSnackKind.warning,
+  );
 }
 
 /// After add-to-cart: compact pill toast using the theme default color.
@@ -542,8 +581,8 @@ class _CompactSnackBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(prominent ? 12 : 10);
-    final iconSize = prominent ? 16.0 : 14.0;
-    final iconBox = prominent ? 28.0 : 24.0;
+    const iconSize = 20.0;
+    const iconBox = 32.0;
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final resolvedMaxWidth = maxWidth ??
         math
@@ -601,15 +640,11 @@ class _CompactSnackBody extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: iconBox,
-                    height: iconBox,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(icon, color: Colors.white, size: iconSize),
+                  _SnackIcon(
+                    accent: accent,
+                    icon: icon,
+                    box: iconBox,
+                    glyph: iconSize,
                   ),
                   SizedBox(width: prominent ? 10 : 8),
                   Flexible(
@@ -652,6 +687,47 @@ class _CompactSnackBody extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SnackIcon extends StatelessWidget {
+  const _SnackIcon({
+    required this.accent,
+    required this.icon,
+    required this.box,
+    required this.glyph,
+  });
+
+  final Color accent;
+  final IconData icon;
+  final double box;
+  final double glyph;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    double snap(double logical) => (logical * ratio).round() / ratio;
+    final size = snap(box);
+    final iconSize = snap(glyph);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+        child: Center(
+          child: MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.noScaling,
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: iconSize,
             ),
           ),
         ),

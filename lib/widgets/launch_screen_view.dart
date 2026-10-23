@@ -74,10 +74,10 @@ class LaunchScreenView extends StatelessWidget {
           )
         else
           ColoredBox(color: backgroundColor),
-        if (appIcon.enabled)
+        if (appIcon.enabled || logoOverride != null || fallbackLogo != null)
           Center(
             child: logoOverride ??
-                (useNetworkLogo && logoUrl != null
+                (appIcon.enabled && useNetworkLogo && logoUrl != null
                     ? SizedBox(
                         width: logoSize,
                         height: logoSize,

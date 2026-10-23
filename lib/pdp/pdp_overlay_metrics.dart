@@ -6,5 +6,5 @@ abstract class PdpOverlayMetrics {
   /// Overlay button offset from the top of the product image.
   static const double topInset = 12;
   static const double contentPadding = 12;
-  static const double blockSpacing = 12;
+  static const double blockSpacing = 4;
 }

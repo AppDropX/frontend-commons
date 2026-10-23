@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 
 const _kPeekAspectRatio = 4 / 5;
 const _kPeekSideScale = 0.82;
@@ -425,7 +426,22 @@ class _AppDropCarouselState extends State<_AppDropCarousel> {
     final titleH = _titleBlockHeight(env, node, showTitles);
 
     Widget slideAt(BuildContext ctx, int realIndex) {
-      return env.renderNode(ctx, slides[realIndex]) as Widget;
+      final slide = slides[realIndex];
+      final rendered = WidgetNode(
+        type: slide.type,
+        props: {...slide.props, 'showShadow': false},
+        children: slide.children,
+      );
+      final child = env.renderNode(ctx, rendered) as Widget;
+      if (!blockShadowEnabled(node)) return child;
+      final radius = env.r.dp(_carouselRadiusDp(node));
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: appDropBlockShadowsFor(ctx, node),
+        ),
+        child: child,
+      );
     }
 
     String titleAt(int realIndex) {

@@ -23,6 +23,7 @@ import '../widgets/pdp_product_cta_block.dart';
 import '../widgets/pdp_product_image_block.dart';
 import '../widgets/pdp_product_label_block.dart';
 import '../widgets/pdp_product_price_block.dart';
+import '../widgets/pdp_product_quantity_block.dart';
 import '../widgets/sort_filter.dart';
 import '../widgets/popular_choices.dart';
 import '../widgets/cart_item.dart';
@@ -64,6 +65,7 @@ class WidgetRegistry {
     r.register('pdp_product_image', buildPdpProductImageBlock);
     r.register('pdp_product_label', buildPdpProductLabelBlock);
     r.register('pdp_product_price', buildPdpProductPriceBlock);
+    r.register('pdp_product_quantity', buildPdpProductQuantityBlock);
     r.register('pdp_product_cta', buildPdpProductCtaBlock);
     r.register('sort_filter', buildSortFilter);
     r.register('popular_choices', buildPopularChoices);

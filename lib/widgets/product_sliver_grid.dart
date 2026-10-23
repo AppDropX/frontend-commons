@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../plp/plp_layout_scope.dart';
 import '../src/registry.dart';
 import '../src/responsive.dart';
 import '../src/widget_node.dart';
@@ -66,12 +67,48 @@ class AppDropProductSliverGrid extends StatelessWidget {
 
     final env = _envFor(renderNode, r);
     final style = ProductGridTileStyle.resolve(context, node);
+    final spacingDp = node.d('spacingDp', def: 12);
     final metrics = resolveProductGridMetrics(
       env: env,
       style: style,
       width: viewportWidth,
-      spacingDp: node.d('spacingDp', def: 12),
+      spacingDp: spacingDp,
+      reserveVendor: _sliverItemsHaveVendor(items),
+      reserveSwatches: _sliverItemsHaveSwatches(items),
     );
+    final isList = PlpLayoutScope.watch(context)?.isList ?? false;
+
+    Widget tile(BuildContext ctx, int index) {
+      final item = items[index];
+      return KeyedSubtree(
+        // Keys element identity to the product rather than the index, so
+        // appending a page never re-associates state with a different row.
+        key: ValueKey<String>(_tileKey(item, index)),
+        child: buildProductGridTile(
+          context: ctx,
+          item: item,
+          node: node,
+          env: env,
+          style: style,
+          metrics: metrics,
+          horizontalRow: false,
+          listLayout: isList,
+        ),
+      );
+    }
+
+    if (isList) {
+      final gap = r.dp(spacingDp);
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (ctx, index) => Padding(
+            padding: EdgeInsets.only(bottom: gap),
+            child: tile(ctx, index),
+          ),
+          childCount: items.length,
+        ),
+      );
+    }
 
     return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -81,23 +118,7 @@ class AppDropProductSliverGrid extends StatelessWidget {
         mainAxisExtent: metrics.tileHeight,
       ),
       delegate: SliverChildBuilderDelegate(
-        (ctx, index) {
-          final item = items[index];
-          return KeyedSubtree(
-            // Keys element identity to the product rather than the index, so
-            // appending a page never re-associates state with a different row.
-            key: ValueKey<String>(_tileKey(item, index)),
-            child: buildProductGridTile(
-              context: ctx,
-              item: item,
-              node: node,
-              env: env,
-              style: style,
-              metrics: metrics,
-              horizontalRow: false,
-            ),
-          );
-        },
+        tile,
         childCount: items.length,
       ),
     );
@@ -120,4 +141,19 @@ class AppDropProductSliverGrid extends StatelessWidget {
 String _tileKey(Map<String, dynamic> item, int index) {
   final id = (item['productId'] ?? item['id'])?.toString().trim() ?? '';
   return id.isEmpty ? 'index_$index' : id;
+}
+
+bool _sliverItemsHaveVendor(List<Map<String, dynamic>> items) {
+  for (final item in items) {
+    if ((item['vendor'] ?? '').toString().trim().isNotEmpty) return true;
+  }
+  return false;
+}
+
+bool _sliverItemsHaveSwatches(List<Map<String, dynamic>> items) {
+  for (final item in items) {
+    final swatches = item['swatches'];
+    if (swatches is List && swatches.isNotEmpty) return true;
+  }
+  return false;
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../product/product_catalog_query.dart';
@@ -215,7 +216,8 @@ class _ProductFilterSheetState extends State<_ProductFilterSheet> {
                   child: FilledButton(
                     onPressed: _facets == null
                         ? null
-                        : () => Navigator.of(context).pop(_selectionFromState()),
+                        : () =>
+                            Navigator.of(context).pop(_selectionFromState()),
                     style: FilledButton.styleFrom(
                       backgroundColor: primary,
                       foregroundColor: resolveAppDropOnPrimaryColor(primary),
@@ -245,7 +247,7 @@ class _ProductFilterSheetState extends State<_ProductFilterSheet> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.all(48),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: Center(child: CupertinoActivityIndicator()),
       );
     }
     if (_error != null) {
@@ -356,8 +358,5 @@ double _roundPrice(double value) {
 }
 
 String _formatPrice(double value, ProductPriceDisplayConfig cfg) {
-  final rounded = value == value.roundToDouble()
-      ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(2);
-  return '${cfg.prefix}$rounded';
+  return formatProductMoney(value, cfg.prefix, suffix: cfg.priceSuffix);
 }

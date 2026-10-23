@@ -23,18 +23,21 @@ Widget buildPdpProductLabelBlock(
       Colors.black87;
   final size = node.d('label_size', def: 16).clamp(12, 24).toDouble();
   final weight = _weight(node.s('font_weight', def: 'semi_bold'));
+  final fontFamily =
+      AppDropThemeScope.maybeOf(context)?.appStyling.fontFamily ?? 'Poppins';
 
   return Text(
-      text,
-      textAlign: align,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: color,
-        fontSize: env.r.sp(size, min: 12, max: 24),
-        fontWeight: weight,
-      ),
-    );
+    text,
+    textAlign: align,
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    style: AppDropThemeData.textStyle(
+      fontFamily: fontFamily,
+      fontSize: env.r.sp(size, min: 12, max: 24),
+      fontWeight: weight,
+      color: color,
+    ),
+  );
 }
 
 Map<String, dynamic> _effectiveProduct(BuildContext context, WidgetNode node) {

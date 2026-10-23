@@ -16,6 +16,20 @@ const List<BoxShadow> kAppDropComponentShadows = [
   ),
 ];
 
+/// Per-block shadow switch. Missing means on, so existing themes keep their elevation.
+bool blockShadowEnabled(WidgetNode node) {
+  final value = node.props['showShadow'] ?? node.props['show_shadow'];
+  if (value is bool) return value;
+  if (value is String) return value.toLowerCase() != 'false';
+  return true;
+}
+
+/// Theme block shadow, or none when this block's shadow toggle is off.
+List<BoxShadow> appDropBlockShadowsFor(BuildContext context, WidgetNode node) {
+  if (!blockShadowEnabled(node)) return const [];
+  return appDropBlockShadowsOf(context);
+}
+
 /// Block/card elevation from theme `app_styling.shadow_color` + `shadow_visible`.
 List<BoxShadow> appDropBlockShadows(AppStylingConfig styling) {
   if (!styling.shadowVisible) return const [];
@@ -69,6 +83,8 @@ List<BoxShadow> appDropMediaBlockShadowsOf(
   BuildContext context,
   WidgetNode node,
 ) {
+  if (!blockShadowEnabled(node)) return const [];
+
   final styling = AppDropThemeScope.maybeOf(context)?.appStyling;
   if (styling != null && !styling.shadowVisible) return const [];
 

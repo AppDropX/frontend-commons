@@ -34,6 +34,7 @@ List<Map<String, dynamic>> enrichPdpBlocksWithProduct(
     if (type == 'pdp_product_image' ||
         type == 'pdp_product_label' ||
         type == 'pdp_product_price' ||
+        type == 'pdp_product_quantity' ||
         type == 'pdp_product_cta') {
       copy['product'] = p;
       if (type == 'pdp_product_image') {
@@ -44,6 +45,7 @@ List<Map<String, dynamic>> enrichPdpBlocksWithProduct(
         };
       }
       if (type == 'pdp_product_cta') {
+        copy['scrollStyle'] = pdpCtaResolvedScrollStyle(copy);
         copy['action'] = {
           'type': 'add_to_cart',
           'direct': true,
@@ -60,11 +62,10 @@ List<Map<String, dynamic>> enrichPdpBlocksWithProduct(
     }
 
     if (type == 'product_description') {
-      final rawDesc = p['description']?.toString() ?? '';
-      final stripped = _stripHtml(rawDesc);
-      copy['description'] = stripped.isEmpty
+      final rawDesc = p['description']?.toString().trim() ?? '';
+      copy['description'] = rawDesc.isEmpty
           ? (w['description']?.toString() ?? 'No description.')
-          : stripped;
+          : rawDesc;
       return copy;
     }
 
@@ -72,9 +73,24 @@ List<Map<String, dynamic>> enrichPdpBlocksWithProduct(
   }).toList();
 }
 
-String _stripHtml(String html) {
-  return html
-      .replaceAll(RegExp(r'<[^>]*>'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
+/// Column layout pins the two buttons in the page, so fixed-bottom scrolling stays off.
+bool pdpCtaUsesColumnLayout(Map<String, dynamic> block) {
+  final showBuyNow = block['show_buy_now'] == true;
+  final layout =
+      (block['button_layout'] ?? 'row').toString().trim().toLowerCase();
+  return showBuyNow && layout == 'column';
+}
+
+/// Scaffold scroll key for a PDP CTA. Column layout always stays inline.
+String pdpCtaResolvedScrollStyle(Map<String, dynamic> block) {
+  if (pdpCtaUsesColumnLayout(block)) return 'inline';
+  final scrollStyle =
+      (block['scroll_style'] ?? block['scrollStyle'] ?? 'inline')
+          .toString()
+          .trim()
+          .toLowerCase();
+  if (scrollStyle == 'fixed_bottom' || scrollStyle == 'fixed_at_bottom') {
+    return 'fixed_at_bottom';
+  }
+  return 'inline';
 }

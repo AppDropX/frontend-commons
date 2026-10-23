@@ -14,6 +14,29 @@ IconData iconFromNameForNav(String name, bool selected) {
     case 'grid_view':
     case 'collections':
       return selected ? FluentIcons.grid_20_filled : FluentIcons.grid_20_regular;
+    case 'list':
+      return selected
+          ? FluentIcons.text_bullet_list_ltr_20_filled
+          : FluentIcons.text_bullet_list_ltr_20_regular;
+    case 'sort':
+      return selected
+          ? FluentIcons.arrow_sort_20_filled
+          : FluentIcons.arrow_sort_20_regular;
+    case 'filter':
+      return selected ? FluentIcons.filter_20_filled : FluentIcons.filter_20_regular;
+    case 'chevron_down':
+      return selected
+          ? FluentIcons.chevron_down_20_filled
+          : FluentIcons.chevron_down_20_regular;
+    case 'add':
+    case 'plus':
+      return FluentIcons.add_20_regular;
+    case 'subtract':
+    case 'minus':
+      return FluentIcons.subtract_20_regular;
+    case 'dismiss':
+    case 'close':
+      return FluentIcons.dismiss_20_regular;
     case 'favorite_border':
     case 'heart':
       return selected ? FluentIcons.heart_20_filled : FluentIcons.heart_20_regular;

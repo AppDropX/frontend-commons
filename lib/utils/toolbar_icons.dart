@@ -11,6 +11,13 @@ abstract class ToolbarGlyph {
   static const person = 'person_outline';
   static const home = 'home';
   static const grid = 'grid_view';
+  static const list = 'list';
+  static const sort = 'sort';
+  static const filter = 'filter';
+  static const chevronDown = 'chevron_down';
+  static const add = 'add';
+  static const subtract = 'subtract';
+  static const dismiss = 'dismiss';
   static const tag = 'tag';
   static const chat = 'chat';
   static const gift = 'gift';
@@ -29,6 +36,13 @@ abstract class ToolbarGlyph {
     person,
     home,
     grid,
+    list,
+    sort,
+    filter,
+    chevronDown,
+    add,
+    subtract,
+    dismiss,
     tag,
     chat,
     gift,
@@ -59,6 +73,20 @@ abstract class ToolbarGlyph {
         return 'Home';
       case grid:
         return 'Grid';
+      case list:
+        return 'List';
+      case sort:
+        return 'Sort';
+      case filter:
+        return 'Filter';
+      case chevronDown:
+        return 'Chevron';
+      case add:
+        return 'Plus';
+      case subtract:
+        return 'Minus';
+      case dismiss:
+        return 'Close';
       case tag:
         return 'Tag';
       case chat:

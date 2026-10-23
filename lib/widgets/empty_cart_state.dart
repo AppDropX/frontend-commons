@@ -2,6 +2,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/component_shadow.dart';
 
 /// Empty cart / wishlist placeholder with premium e-commerce styling.
 ///
@@ -29,6 +30,7 @@ Widget buildEmptyCartState(BuildContext context, WidgetNode node, AppDropBuildEn
   final action = node.m('action');
   final ctaStyle = node.s('ctaStyle', def: 'filled').toLowerCase();
   final isOutlinedCta = ctaStyle == 'outlined';
+  final showShadow = blockShadowEnabled(node);
 
   final accent = resolveAppDropPrimaryColor(context);
   final onAccent = resolveAppDropOnPrimaryColor(accent);
@@ -121,13 +123,15 @@ Widget buildEmptyCartState(BuildContext context, WidgetNode node, AppDropBuildEn
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: accent,
-                        boxShadow: [
-                          BoxShadow(
-                            color: accent.withValues(alpha: 0.28),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+                        boxShadow: showShadow
+                            ? [
+                                BoxShadow(
+                                  color: accent.withValues(alpha: 0.28),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ]
+                            : const [],
                       ),
                       alignment: Alignment.center,
                       child: Icon(
@@ -172,7 +176,7 @@ Widget buildEmptyCartState(BuildContext context, WidgetNode node, AppDropBuildEn
                       border: outline != null
                           ? Border.all(color: outline, width: 1.5)
                           : null,
-                      boxShadow: isOutlinedCta
+                      boxShadow: isOutlinedCta || !showShadow
                           ? const []
                           : [
                               BoxShadow(

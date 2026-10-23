@@ -25,10 +25,16 @@ Widget buildRelatedProducts(
   adaptedProps['showViewAllButton'] = false;
   adaptedProps['showCollectionHeading'] = false;
   final sizeKey = node.s('sectionTitleFontVariation', def: 'small').toLowerCase();
+  final explicitSize = node.d('sectionTitleSize', def: 0);
   adaptedProps['gridTitleFontVariation'] = sizeKey;
-  adaptedProps['gridTitleFontSize'] = _relatedTitleSizeDp(sizeKey);
+  adaptedProps['gridTitleFontSize'] = explicitSize > 0
+      ? explicitSize.clamp(12, 24)
+      : _relatedTitleSizeDp(sizeKey);
   adaptedProps['gridTitleFontWeight'] =
       node.s('sectionTitleWeight', def: 'semi_bold');
+  final titleColor = node.s('sectionTitleColor', def: '#000000').trim();
+  adaptedProps['gridTitleColor'] =
+      titleColor.isEmpty ? '#000000' : titleColor;
   adaptedProps['gridTitleAlign'] =
       node.s('sectionTitleAlign', def: 'left').toLowerCase();
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../connectivity/appdrop_connectivity.dart';
@@ -51,8 +52,7 @@ class AppDropOfflineStyle {
   final String actionLabel;
 
   String get resolvedSubtitle =>
-      subtitle ??
-      'Reconnect to the internet to keep using $appName.';
+      subtitle ?? 'Reconnect to the internet to keep using $appName.';
 
   /// Builder admin shell — Plus Jakarta + AppDrop orange on slate.
   static const builder = AppDropOfflineStyle(
@@ -267,72 +267,72 @@ class _AppDropOfflineNotice extends StatelessWidget {
         return Opacity(opacity: value, child: child);
       },
       child: Material(
-      color: style.backgroundColor,
-      child: Stack(
-        children: [
-          if (style.layout == AppDropOfflineLayout.canvas) ...[
-            Positioned(
-              top: -80,
-              right: -60,
-              child: _Glow(color: style.accentColor, size: 280),
-            ),
-            Positioned(
-              bottom: -100,
-              left: -80,
-              child: _Glow(
-                color: style.accentColor.withValues(alpha: 0.07),
-                size: 320,
+        color: style.backgroundColor,
+        child: Stack(
+          children: [
+            if (style.layout == AppDropOfflineLayout.canvas) ...[
+              Positioned(
+                top: -80,
+                right: -60,
+                child: _Glow(color: style.accentColor, size: 280),
+              ),
+              Positioned(
+                bottom: -100,
+                left: -80,
+                child: _Glow(
+                  color: style.accentColor.withValues(alpha: 0.07),
+                  size: 320,
+                ),
+              ),
+            ],
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal:
+                        style.layout == AppDropOfflineLayout.canvas ? 24 : 32,
+                    vertical: 32,
+                  ),
+                  child: style.layout == AppDropOfflineLayout.canvas
+                      ? ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 440),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: style.surfaceColor,
+                              borderRadius:
+                                  BorderRadius.circular(style.cornerRadius),
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(32, 40, 32, 32),
+                              child: content,
+                            ),
+                          ),
+                        )
+                      : ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: content,
+                        ),
+                ),
               ),
             ),
           ],
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: style.layout == AppDropOfflineLayout.canvas
-                      ? 24
-                      : 32,
-                  vertical: 32,
-                ),
-                child: style.layout == AppDropOfflineLayout.canvas
-                    ? ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: style.surfaceColor,
-                            borderRadius:
-                                BorderRadius.circular(style.cornerRadius),
-                            border: Border.all(
-                              color: const Color(0xFFE5E7EB),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(32, 40, 32, 32),
-                            child: content,
-                          ),
-                        ),
-                      )
-                    : ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 360),
-                        child: content,
-                      ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -474,14 +474,7 @@ class _RetryButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (retrying)
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: style.buttonForeground,
-                      ),
-                    )
+                    const CupertinoActivityIndicator(radius: 8)
                   else
                     Icon(
                       FluentIcons.arrow_sync_24_regular,

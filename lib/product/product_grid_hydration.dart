@@ -149,7 +149,7 @@ Map<String, dynamic>? collectionMapForRef(
         return m;
       }
     }
-    final title = m['title']?.toString() ?? '';
+    final title = (m['title'] ?? m['name'])?.toString() ?? '';
     if (title.isEmpty) continue;
     if (title.toLowerCase() == ref.toLowerCase() ||
         slugifyCollectionKey(title) == refSlug) {
@@ -163,7 +163,7 @@ Map<String, dynamic>? collectionMapForRef(
 String? collectionTitleForRef(String ref, List<dynamic> collections) {
   if (isAllProductsCollectionRef(ref)) return 'All products';
   final m = collectionMapForRef(ref, collections);
-  final t = m?['title']?.toString().trim();
+  final t = (m?['title'] ?? m?['name'])?.toString().trim();
   if (t != null && t.isNotEmpty) return t;
   return null;
 }
@@ -326,7 +326,8 @@ List<Map<String, String>> _refreshPopularChoiceTitles(
     for (final item in items)
       {
         'id': item['id'] ?? '',
-        'title': titles[(item['id'] ?? '').toLowerCase()] ?? item['title'] ?? '',
+        'title':
+            titles[(item['id'] ?? '').toLowerCase()] ?? item['title'] ?? '',
       },
   ];
 }

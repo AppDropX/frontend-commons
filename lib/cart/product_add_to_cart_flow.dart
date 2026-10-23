@@ -47,13 +47,14 @@ Future<void> presentAddToCartFlow({
         if (action['heroTag'] != null) 'heroTag': action['heroTag'],
       });
     },
-    onAddToCart: (effectiveProduct) {
+    onAddToCart: (effectiveProduct, quantity) {
       commitAddToCart(
         {
           ...action,
           'direct': true,
           'productId': id,
           'product': effectiveProduct,
+          'quantity': quantity,
         },
         effectiveProduct,
       );

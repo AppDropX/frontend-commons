@@ -16,6 +16,7 @@ Widget buildDiscountCode(BuildContext context, WidgetNode node, AppDropBuildEnv 
   final buttonColor = parseHexColor(node.s('buttonColor', def: '#111827')) ?? const Color(0xFF111827);
   final buttonFontColor = parseHexColor(node.s('buttonFontColor', def: '#FFFFFF')) ?? Colors.white;
   final radius = node.d('borderRadius', def: 12).clamp(0, 24).toDouble();
+  final shadows = appDropBlockShadowsFor(context, node);
 
   return _DiscountCodeWidget(
     placeholder: placeholder,
@@ -23,6 +24,7 @@ Widget buildDiscountCode(BuildContext context, WidgetNode node, AppDropBuildEnv 
     buttonColor: buttonColor,
     buttonFontColor: buttonFontColor,
     borderRadiusDp: radius,
+    shadows: shadows,
     r: r,
     onApply: (code) {
       env.dispatchAction(context, {
@@ -40,6 +42,7 @@ class _DiscountCodeWidget extends StatefulWidget {
     required this.buttonColor,
     required this.buttonFontColor,
     required this.borderRadiusDp,
+    required this.shadows,
     required this.r,
     required this.onApply,
   });
@@ -49,6 +52,7 @@ class _DiscountCodeWidget extends StatefulWidget {
   final Color buttonColor;
   final Color buttonFontColor;
   final double borderRadiusDp;
+  final List<BoxShadow> shadows;
   final R r;
   final void Function(String code) onApply;
 
@@ -84,7 +88,7 @@ class _DiscountCodeWidgetState extends State<_DiscountCodeWidget> {
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: Colors.grey.shade300),
-        boxShadow: appDropBlockShadowsOf(context),
+        boxShadow: widget.shadows,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

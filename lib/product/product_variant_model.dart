@@ -406,3 +406,50 @@ Map<String, dynamic> productWithSelectedVariant(
     'variant': variant.label,
   };
 }
+
+/// Quantity carried on an add-to-cart or buy-now action. Missing values mean 1.
+int cartQuantityFromAction(Map<String, dynamic> action) {
+  final raw = action['quantity'];
+  if (raw is num && raw > 0) return raw.round();
+  if (raw is String) {
+    final parsed = int.tryParse(raw.trim());
+    if (parsed != null && parsed > 0) return parsed;
+  }
+  return 1;
+}
+
+/// Remaining units for the selected variant, then the product payload.
+int? inventoryQuantityFromProductMap(Map<String, dynamic> product) {
+  final selected = product['selectedVariant'];
+  if (selected is Map) {
+    final qty = parseVariantInventoryQuantity(
+      Map<String, dynamic>.from(selected),
+    );
+    if (qty != null) return qty;
+  }
+  final selectedId = selectedVariantIdFromProductMap(product);
+  if (selectedId.isNotEmpty) {
+    for (final variant in parseProductVariants(product)) {
+      if (variant.id == selectedId && variant.inventoryQuantity != null) {
+        return variant.inventoryQuantity;
+      }
+    }
+  }
+  return parseVariantInventoryQuantity(product);
+}
+
+/// Next cart-line quantity after adding [requested] units, never above [stock].
+/// Returns [existing] when nothing more can be added.
+int nextCartLineQuantity({
+  required int existing,
+  required int requested,
+  int? stock,
+}) {
+  final add = requested < 1 ? 1 : requested;
+  var next = existing + add;
+  if (stock != null) {
+    if (stock <= existing) return existing;
+    if (next > stock) next = stock;
+  }
+  return next;
+}

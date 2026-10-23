@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../search/product_search_entry.dart';
@@ -50,7 +51,11 @@ class _AppDropSearchFieldState extends State<AppDropSearchField> {
   static const _holdMs = Duration(milliseconds: 1400);
   static const _gapMs = Duration(milliseconds: 400);
 
+  final FocusNode _focus = FocusNode();
   Timer? _typewriter;
+  bool _keyboardArmed = false;
+  Animation<double>? _routeAnimation;
+  VoidCallback? _routeListener;
   int _hintIndex = 0;
   int _charCount = 0;
   _HintPhase _phase = _HintPhase.typing;
@@ -64,6 +69,22 @@ class _AppDropSearchFieldState extends State<AppDropSearchField> {
     super.initState();
     widget.controller.addListener(_onQueryTick);
     _startTypewriter();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    final current = route?.isCurrent ?? true;
+    if (!widget.autofocus || !current) {
+      if (!current) _keyboardArmed = false;
+      return;
+    }
+    if (_keyboardArmed) return;
+    _keyboardArmed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusWhenReady();
+    });
   }
 
   @override
@@ -85,9 +106,42 @@ class _AppDropSearchFieldState extends State<AppDropSearchField> {
 
   @override
   void dispose() {
+    if (_routeAnimation != null && _routeListener != null) {
+      _routeAnimation!.removeListener(_routeListener!);
+    }
+    _focus.dispose();
     widget.controller.removeListener(_onQueryTick);
     _typewriter?.cancel();
     super.dispose();
+  }
+
+  void _focusWhenReady() {
+    if (!mounted || !widget.autofocus) return;
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null ||
+        animation.status == AnimationStatus.completed ||
+        animation.value >= 0.6) {
+      _focus.requestFocus();
+      return;
+    }
+    if (_routeAnimation != null && _routeListener != null) {
+      _routeAnimation!.removeListener(_routeListener!);
+    }
+    _routeAnimation = animation;
+    _routeListener = () {
+      if (animation.status == AnimationStatus.dismissed) {
+        animation.removeListener(_routeListener!);
+        _keyboardArmed = false;
+        return;
+      }
+      if (animation.value < 0.6 &&
+          animation.status != AnimationStatus.completed) {
+        return;
+      }
+      animation.removeListener(_routeListener!);
+      if (mounted) _focus.requestFocus();
+    };
+    animation.addListener(_routeListener!);
   }
 
   void _onQueryTick() {
@@ -174,8 +228,8 @@ class _AppDropSearchFieldState extends State<AppDropSearchField> {
   @override
   Widget build(BuildContext context) {
     final cfg = AppDropThemeScope.maybeOf(context);
-    final accent = cfg?.appStyling.defaultColor ??
-        Theme.of(context).colorScheme.primary;
+    final accent =
+        cfg?.appStyling.defaultColor ?? Theme.of(context).colorScheme.primary;
     final style = widget.style;
     final radius = BorderRadius.circular(style.cornerRadius);
     final restingBorder = BorderSide(color: style.borderColor);
@@ -190,13 +244,15 @@ class _AppDropSearchFieldState extends State<AppDropSearchField> {
         builder: (context, value, _) {
           final field = TextField(
             controller: widget.controller,
-            autofocus: widget.autofocus,
+            focusNode: _focus,
+            autofocus: false,
             onChanged: widget.onChanged,
             textInputAction: TextInputAction.search,
             keyboardAppearance: Brightness.light,
             cursorColor: accent,
-            onSubmitted:
-                widget.onSubmitted == null ? null : (_) => widget.onSubmitted!(),
+            onSubmitted: widget.onSubmitted == null
+                ? null
+                : (_) => widget.onSubmitted!(),
             style: const TextStyle(
               color: AppDropSearchField._inputText,
               fontSize: 15,
@@ -446,11 +502,7 @@ class AppDropSearchListFooter extends StatelessWidget {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 20),
         child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          child: CupertinoActivityIndicator(),
         ),
       );
     }

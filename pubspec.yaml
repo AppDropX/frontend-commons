@@ -8,11 +8,13 @@ dependencies:
   fluentui_system_icons: ^1.1.273
   flutter:
     sdk: flutter
+  dropdown_button2: ^2.3.9
   flutter_svg: ^2.2.3
   flutter_animate: ^4.5.2
   connectivity_plus: ^6.1.5
   flutter_quill: ^11.5.0
   google_fonts: ^6.2.1
+  html: ^0.15.6
   shimmer: ^3.0.0
   vibration: ^3.2.0
   video_player: ^2.9.2

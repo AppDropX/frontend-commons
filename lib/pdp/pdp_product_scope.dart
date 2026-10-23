@@ -1,32 +1,45 @@
 import 'package:flutter/widgets.dart';
 
 import '../product/product_variant_model.dart';
+import '../widgets/product_price_row.dart';
 
 /// PDP selection state: chosen variant drives price and cart payload.
 class PdpProductController extends ChangeNotifier {
-  PdpProductController(Map<String, dynamic> product)
-      : _product = Map<String, dynamic>.from(product) {
+  PdpProductController(
+    Map<String, dynamic> product, {
+    this.selectFirstInStock = false,
+  }) : _product = Map<String, dynamic>.from(product) {
     _syncVariants(keepId: null);
   }
 
+  /// List sheets keep the previous first-in-stock default. PDP starts with
+  /// nothing chosen so the price can show a range until the shopper picks.
+  final bool selectFirstInStock;
+
   Map<String, dynamic> _product;
   List<ProductVariantOption> variants = const [];
-  int _selectedIndex = 0;
+  int _selectedIndex = -1;
+  int _quantity = 1;
+
+  /// Stepper cap reported by the quantity block. Null until that block builds.
+  int? appliedCeiling;
+  bool _ceilingNotifyScheduled = false;
 
   Map<String, dynamic> get product => _product;
 
   String get variantGroupLabel => productVariantGroupLabel(_product);
 
   ProductVariantOption? get selectedVariant {
-    if (variants.isEmpty) return null;
-    final clamped = _selectedIndex.clamp(0, variants.length - 1);
-    return variants[clamped];
+    if (!hasSelection) return null;
+    return variants[_selectedIndex];
   }
 
-  int get selectedIndex {
-    if (variants.isEmpty) return 0;
-    return _selectedIndex.clamp(0, variants.length - 1);
-  }
+  /// `-1` until the shopper picks a variant. A product with one variant is
+  /// selected immediately because there is nothing to choose.
+  int get selectedIndex => _selectedIndex;
+
+  bool get hasSelection =>
+      _selectedIndex >= 0 && _selectedIndex < variants.length;
 
   bool get hasVariants => variants.length > 1;
 
@@ -41,8 +54,8 @@ class PdpProductController extends ChangeNotifier {
 
   void _syncVariants({String? keepId}) {
     variants = parseProductVariants(_product);
-    if (variants.isEmpty) {
-      _selectedIndex = 0;
+    if (variants.length <= 1) {
+      _selectedIndex = variants.isEmpty ? -1 : 0;
       return;
     }
     if (keepId != null && keepId.isNotEmpty) {
@@ -52,12 +65,12 @@ class PdpProductController extends ChangeNotifier {
         return;
       }
     }
-    final clamped = _selectedIndex.clamp(0, variants.length - 1);
-    if (!variants[clamped].isOutOfStock) {
-      _selectedIndex = clamped;
+    if (_selectedIndex >= 0 &&
+        _selectedIndex < variants.length &&
+        !variants[_selectedIndex].isOutOfStock) {
       return;
     }
-    _selectedIndex = _firstInStockIndex();
+    _selectedIndex = selectFirstInStock ? _firstInStockIndex() : -1;
   }
 
   int _firstInStockIndex() {
@@ -72,6 +85,46 @@ class PdpProductController extends ChangeNotifier {
     if (variants[clamped].isOutOfStock) return;
     if (_selectedIndex == clamped) return;
     _selectedIndex = clamped;
+    _quantity = 1;
+    notifyListeners();
+  }
+
+  /// Units chosen on the PDP stepper. Clamped by [appliedCeiling] when set.
+  int get quantity {
+    final cap = appliedCeiling;
+    if (cap != null && cap <= 0) return 0;
+    final stored = _quantity < 1 ? 1 : _quantity;
+    if (cap != null && stored > cap) return cap;
+    return stored;
+  }
+
+  void setQuantity(int value) {
+    var next = value < 1 ? 1 : value;
+    final cap = appliedCeiling;
+    if (cap != null && cap > 0 && next > cap) next = cap;
+    if (cap != null && cap <= 0) next = 1;
+    if (_quantity == next) return;
+    _quantity = next;
+    notifyListeners();
+  }
+
+  /// Records the stepper cap. Safe to call during build; listeners update after the frame.
+  void syncCeiling(int ceiling) {
+    final clamped = ceiling > 0 && _quantity > ceiling;
+    final changed = appliedCeiling != ceiling || clamped;
+    appliedCeiling = ceiling;
+    if (clamped) _quantity = ceiling;
+    if (!changed || _ceilingNotifyScheduled) return;
+    _ceilingNotifyScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ceilingNotifyScheduled = false;
+      notifyListeners();
+    });
+  }
+
+  void resetQuantity() {
+    if (_quantity == 1) return;
+    _quantity = 1;
     notifyListeners();
   }
 
@@ -104,23 +157,17 @@ class PdpProductController extends ChangeNotifier {
     return 0;
   }
 
-  String get formattedPriceLine {
+  String formattedPriceLine({
+    String prefix = '₹',
+    String suffix = 'default',
+  }) {
     final selling = sellingPrice;
     if (selling <= 0) return '';
     final retail = retailPrice;
     if (retail > selling && retail > 0) {
-      final sellStr = selling == selling.roundToDouble()
-          ? selling.toStringAsFixed(0)
-          : selling.toStringAsFixed(2);
-      final retailStr = retail == retail.roundToDouble()
-          ? retail.toStringAsFixed(0)
-          : retail.toStringAsFixed(2);
-      return '₹$sellStr  ·  was ₹$retailStr';
+      return '${formatProductMoney(selling, prefix, suffix: suffix)}  ·  was ${formatProductMoney(retail, prefix, suffix: suffix)}';
     }
-    final sellStr = selling == selling.roundToDouble()
-        ? selling.toStringAsFixed(0)
-        : selling.toStringAsFixed(2);
-    return '₹$sellStr';
+    return formatProductMoney(selling, prefix, suffix: suffix);
   }
 
   Map<String, dynamic> get effectiveProduct {
@@ -166,6 +213,39 @@ class PdpProductScope extends InheritedNotifier<PdpProductController> {
         .dependOnInheritedWidgetOfExactType<PdpProductScope>()
         ?.notifier;
   }
+}
+
+/// Highest quantity the PDP stepper can select. `0` means the selection is sold out.
+int pdpQuantityCeiling({
+  required Map<String, dynamic> product,
+  ProductVariantOption? variant,
+  required int configuredMax,
+}) {
+  final max = configuredMax < 1 ? 1 : configuredMax;
+  if (variant != null) {
+    if (variant.isOutOfStock) return 0;
+    final stock = variant.inventoryQuantity;
+    if (stock == null) return max;
+    if (stock <= 0) return 0;
+    return stock < max ? stock : max;
+  }
+  if (!catalogProductIsInStock(product)) return 0;
+  final stock = parseVariantInventoryQuantity(product);
+  if (stock == null) return max;
+  if (stock <= 0) return 0;
+  return stock < max ? stock : max;
+}
+
+bool pdpSelectionIsSoldOut({
+  required Map<String, dynamic> product,
+  ProductVariantOption? variant,
+}) {
+  return pdpQuantityCeiling(
+        product: product,
+        variant: variant,
+        configuredMax: 1,
+      ) ==
+      0;
 }
 
 /// Host widget that owns [PdpProductController] lifecycle for a PDP screen.

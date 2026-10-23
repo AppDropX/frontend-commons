@@ -1,6 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import '../theme_library.dart';
+import '../utils/appdrop_snackbar.dart';
 import '../utils/network_image_url.dart';
 import '../utils/component_shadow.dart';
 import 'cart_remove_confirm_dialog.dart';
@@ -52,6 +53,7 @@ Widget buildCartItem(BuildContext context, WidgetNode node, AppDropBuildEnv env)
         : cartLineKey(productId: productId, product: productMap),
     isFirst: isFirst,
     productMap: productMap,
+    showShadow: blockShadowEnabled(node),
   );
 }
 
@@ -68,6 +70,7 @@ class _CartItemWidget extends StatelessWidget {
     required this.lineKey,
     required this.isFirst,
     required this.productMap,
+    required this.showShadow,
   });
 
   final R r;
@@ -81,6 +84,7 @@ class _CartItemWidget extends StatelessWidget {
   final String lineKey;
   final bool isFirst;
   final Map<String, dynamic>? productMap;
+  final bool showShadow;
 
   static const Color _cardColor = Color(0xFFFFFFFF);
   static const Color _borderColor = Color(0xFFE8E4DC);
@@ -95,14 +99,13 @@ class _CartItemWidget extends StatelessWidget {
   static const double _imageGapDp = 12;
 
   /// Middle row between title and price — variant and optional unit price.
-  String _middleLine(double unitPrice) {
+  String _middleLine(double unitPrice, String prefix, String suffix) {
     final parts = <String>[];
     if (variant.isNotEmpty) parts.add(variant);
     if (unitPrice > 0 && quantity > 1) {
-      final formatted = unitPrice == unitPrice.roundToDouble()
-          ? unitPrice.toStringAsFixed(0)
-          : unitPrice.toStringAsFixed(2);
-      parts.add('₹$formatted each');
+      parts.add(
+        '${formatProductMoney(unitPrice, prefix, suffix: suffix)} each',
+      );
     }
     return parts.join(' · ');
   }
@@ -122,6 +125,7 @@ class _CartItemWidget extends StatelessWidget {
       await _confirmAndRemove(context);
       return;
     }
+    triggerQuantityChangeHaptic();
     env.dispatchAction(context, {
       'type': 'decrement_cart',
       'productId': productId,
@@ -139,7 +143,10 @@ class _CartItemWidget extends StatelessWidget {
         ? sellingPriceFromApiProduct(productMap!)
         : 0.0;
     final canOpenProduct = productId.isNotEmpty && productMap != null;
-    final middleLine = _middleLine(unitPrice);
+    final priceCfg = ProductPriceDisplayConfig.fromContext(context);
+    final prefix = priceCfg.prefix;
+    final suffix = priceCfg.priceSuffix;
+    final middleLine = _middleLine(unitPrice, prefix, suffix);
     final radius = BorderRadius.circular(r.dp(_cardRadiusDp));
 
     return Padding(
@@ -154,7 +161,7 @@ class _CartItemWidget extends StatelessWidget {
           color: _cardColor,
           borderRadius: radius,
           border: Border.all(color: _borderColor),
-          boxShadow: kAppDropCartItemShadows,
+          boxShadow: showShadow ? kAppDropCartItemShadows : const [],
         ),
         child: Material(
           color: _cardColor,
@@ -230,7 +237,13 @@ class _CartItemWidget extends StatelessWidget {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        price.isEmpty ? '₹0' : price,
+                                        price.isEmpty
+                                            ? formatProductMoney(
+                                                0,
+                                                prefix,
+                                                suffix: suffix,
+                                              )
+                                            : price,
                                         style: TextStyle(
                                           fontSize: r.sp(15, min: 14, max: 16),
                                           fontWeight: FontWeight.w700,
@@ -247,15 +260,17 @@ class _CartItemWidget extends StatelessWidget {
                                         quantity: quantity,
                                         accentColor: primaryColor,
                                         onDecrement: () => _onDecrement(context),
-                                        onIncrement: () =>
-                                            env.dispatchAction(context, {
+                                        onIncrement: () {
+                                          triggerQuantityChangeHaptic();
+                                          env.dispatchAction(context, {
                                           'type': 'add_to_cart',
                                           'direct': true,
                                           'productId': productId,
                                           'lineKey': lineKey,
                                           'product':
                                               productMap ?? <String, dynamic>{},
-                                        }),
+                                          });
+                                        },
                                       )
                                     else
                                       Text(

@@ -49,7 +49,7 @@ class ProductFilterOption {
   final List<String> values;
 }
 
-/// Facets from `GET /api/mobile/products/filters`.
+/// Facets from the collection or store-wide filters endpoint.
 class ProductFilterFacets {
   const ProductFilterFacets({
     this.options = const [],
@@ -153,9 +153,8 @@ ProductFilterFacets productFilterFacetsFromJson(dynamic raw) {
     for (final entry in optionsRaw) {
       if (entry is! Map) continue;
       final map = Map<String, dynamic>.from(entry);
-      final name = (map['name'] ?? map['key'] ?? map['option'] ?? '')
-          .toString()
-          .trim();
+      final name =
+          (map['name'] ?? map['key'] ?? map['option'] ?? '').toString().trim();
       final values = map['values'] ?? map['options'] ?? map['choices'];
       if (values is List) addOption(name, values);
     }

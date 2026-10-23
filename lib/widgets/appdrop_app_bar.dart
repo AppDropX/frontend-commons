@@ -8,11 +8,15 @@ import '../utils/network_image_url.dart';
 import '../utils/toolbar_icons.dart';
 import 'appdrop_network_image.dart';
 import 'appdrop_tinted_graphic.dart';
+import 'appdrop_toolbar_search_bar.dart';
 
 /// Default storefront toolbar row height (excludes status bar inset).
 ///
 /// Sized to match a slim, logo-forward header (~2× title cap height).
 const double kAppDropToolbarHeight = 48.0;
+
+/// Extra height for the search field row under the title / logo.
+const double kAppDropToolbarSearchRowHeight = 54.0;
 
 const List<BoxShadow> kAppDropToolbarBottomShadow = [
   BoxShadow(
@@ -91,16 +95,41 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   double get _actionButtonWidth =>
       (_toolbarContentHeight * 0.833).clamp(36.0, 40.0);
 
-  double get _h => _toolbarContentHeight + statusBarInset;
+  bool get _showSearchRow => pageToolbar?.showsInlineSearchBar == true;
+
+  double get _searchRowHeight =>
+      _showSearchRow ? kAppDropToolbarSearchRowHeight : 0;
+
+  double get _h => _toolbarContentHeight + _searchRowHeight + statusBarInset;
   @override
   Size get preferredSize => Size.fromHeight(_h);
 
   static const double _kHorizontalEdgePadding = 16;
+  static const double _kLeadingEdgePaddingWhenIcon = 4;
   static const double _kTrailingEdgePadding = 8;
   static const double _kActionSpacing = 4;
   static const double _kLogoMaxWidth = 168;
   static const double _kTitleMaxWidth = 200;
   static const double _kLeadingTitleGap = 4;
+
+  double _toolbarLeftPadding({
+    required bool hasLeading,
+    required bool titleLeft,
+  }) {
+    if (titleLeft || !hasLeading) return _kHorizontalEdgePadding;
+    return _kLeadingEdgePaddingWhenIcon;
+  }
+
+  double _toolbarRightPadding({required bool hasActions}) {
+    return hasActions ? _kTrailingEdgePadding : _kHorizontalEdgePadding;
+  }
+
+  /// Inset from an icon-button's outer edge to the glyph, so the search field
+  /// lines up with the visible menu / cart icons rather than the tap target.
+  double get _iconGlyphInset {
+    final extra = (_actionButtonWidth - _iconSize) / 2;
+    return extra.clamp(0.0, 12.0);
+  }
 
   ButtonStyle get _actionButtonStyle => IconButton.styleFrom(
         foregroundColor: styling.toolbarFont,
@@ -423,6 +452,36 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
+  Widget _buildSearchRow({
+    required bool hasLeading,
+    required bool hasActions,
+    required bool titleLeft,
+  }) {
+    const searchPadNudge = 4.0;
+    final rowLeft = _toolbarLeftPadding(
+      hasLeading: hasLeading,
+      titleLeft: titleLeft,
+    );
+    final rowRight = _toolbarRightPadding(hasActions: hasActions);
+    final left = (rowLeft +
+            (hasLeading ? _iconGlyphInset : 0) -
+            searchPadNudge)
+        .clamp(rowLeft, 24.0);
+    final right = (rowRight +
+            (hasActions ? _iconGlyphInset : 0) -
+            searchPadNudge)
+        .clamp(rowRight, 24.0);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(left, 2, right, 12),
+      child: AppDropToolbarSearchBar(
+        config: pageToolbar!.searchBar,
+        accentColor: styling.defaultColor,
+        height: 40,
+        onTap: onSearchTap,
+      ),
+    );
+  }
+
   Widget _buildToolbarRow({
     required BuildContext context,
     required Widget? leading,
@@ -432,9 +491,9 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
   }) {
     if (titleLeft) {
       return Padding(
-        padding: const EdgeInsets.only(
-          left: _kHorizontalEdgePadding,
-          right: _kTrailingEdgePadding,
+        padding: EdgeInsets.only(
+          left: _toolbarLeftPadding(hasLeading: hasLeading, titleLeft: true),
+          right: _toolbarRightPadding(hasActions: actions.isNotEmpty),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -457,8 +516,8 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: hasLeading ? 4 : _kHorizontalEdgePadding,
-        right: _kTrailingEdgePadding,
+        left: _toolbarLeftPadding(hasLeading: hasLeading, titleLeft: false),
+        right: _toolbarRightPadding(hasActions: actions.isNotEmpty),
       ),
       child: Stack(
         alignment: Alignment.center,
@@ -519,15 +578,26 @@ class AppDropAppBar extends StatelessWidget implements PreferredSizeWidget {
         type: MaterialType.transparency,
         child: Padding(
           padding: EdgeInsets.only(top: topInset),
-          child: SizedBox(
-            height: _toolbarContentHeight,
-            child: _buildToolbarRow(
-              context: context,
-              leading: leading,
-              hasLeading: hasLeading,
-              titleLeft: titleLeft,
-              actions: actions,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: _toolbarContentHeight,
+                child: _buildToolbarRow(
+                  context: context,
+                  leading: leading,
+                  hasLeading: hasLeading,
+                  titleLeft: titleLeft,
+                  actions: actions,
+                ),
+              ),
+              if (_showSearchRow)
+                _buildSearchRow(
+                  hasLeading: hasLeading,
+                  hasActions: actions.isNotEmpty,
+                  titleLeft: titleLeft,
+                ),
+            ],
           ),
         ),
       ),

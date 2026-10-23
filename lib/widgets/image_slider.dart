@@ -215,7 +215,7 @@ Widget buildImageSlider(
   final slider = Container(
     decoration: BoxDecoration(
       borderRadius: br,
-      boxShadow: appDropBlockShadowsOf(context),
+      boxShadow: appDropBlockShadowsFor(context, node),
     ),
     child: ClipRRect(
       borderRadius: br,

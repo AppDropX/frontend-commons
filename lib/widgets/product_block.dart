@@ -11,6 +11,7 @@ import '../utils/product_block_theme_helpers.dart';
 import 'fullscreen_image_viewer.dart';
 import 'product_hero_image.dart';
 import 'product_image_placeholder.dart';
+import 'product_list_card.dart';
 import 'product_price_row.dart';
 import 'wishlist_heart_button.dart';
 
@@ -92,8 +93,15 @@ Widget buildProductBlock(
 
   final upperCaseTitle = b('upper_case_title', true);
   final cardView = b('card_view', true);
+  final imagePadding = cardView &&
+      !b('embed_in_list', false) &&
+      productBlockSettingBool(merged, 'image_padding', false);
   final titleFontVariation = s('title_font_variation', 'regular');
   final titleFontWeight = titleFontWeightFromVariation(titleFontVariation);
+  final titleFontSize = productTitleFontSize(
+    productBlockSetting(merged, 'title_size', 'Medium'),
+    env.r,
+  );
 
   final showWishlistBadge = b('show_wishlist_badge', false);
   final wishlistBadgeSize = s('wishlist_badge_size', 'Small');
@@ -118,12 +126,8 @@ Widget buildProductBlock(
       parseHexColor(s('discount_badge_bg_color', '#E53935')) ??
           const Color(0xFFE53935);
 
-  final buttonStyleRaw = s('button_style', 'sharp_filled').toLowerCase();
-  final buttonStyleParts = buttonStyleRaw.split(RegExp(r'[_\-\s]+'));
-  final buttonShape =
-      buttonStyleParts.isNotEmpty ? buttonStyleParts.first : 'sharp';
-  final buttonType =
-      buttonStyleParts.length > 1 ? buttonStyleParts[1] : 'filled';
+  final isOutlined = productBlockButtonOutlined(merged);
+  final buttonCornerRadiusDp = productButtonCornerRadiusDp(merged);
 
   final product = node.m('product') ?? <String, dynamic>{};
   final productId = (product['productId'] ?? product['id'])?.toString() ?? '';
@@ -136,18 +140,24 @@ Widget buildProductBlock(
   final imageUrl = sanitizedNetworkImageUrl(bestApiProductImageUrl(product));
   final productImages = _productImages(product, imageUrl);
 
+  final embedInList = b('embed_in_list', false);
   final embedInGrid = b('embed_in_grid', false);
   final embedInPdp = b('embed_in_pdp', false);
-  // Cards paint at ~150 dp, so they request the CDN-narrowed thumbnail. PDP and
-  // the fullscreen viewer keep the full-resolution originals from [images].
-  final cardImageUrl = embedInPdp
-      ? imageUrl
-      : (sanitizedNetworkImageUrl(productThumbnailUrl(product)) ?? imageUrl);
+  final catalogPrice = embedInGrid || embedInList;
+  // Grid cards stay on the small thumbnail. The PDP photo asks Shopify for a
+  // wider file so a full-width image stays sharp. A tap still opens the original.
+  final cardImageUrl = sanitizedNetworkImageUrl(
+        productThumbnailUrl(
+          product,
+          width: embedInPdp ? kPdpProductImageWidth : kProductThumbnailWidth,
+        ),
+      ) ??
+      imageUrl;
   final pdpScope = embedInPdp ? PdpProductScope.maybeOf(context) : null;
   final sellingPrice = pdpScope?.sellingPrice ??
-      _resolvedSellingPrice(product, embedInGrid: embedInGrid);
+      _resolvedSellingPrice(product, embedInGrid: catalogPrice);
   final retailPrice = pdpScope?.retailPrice ??
-      _resolvedRetailPrice(product, sellingPrice, embedInGrid: embedInGrid);
+      _resolvedRetailPrice(product, sellingPrice, embedInGrid: catalogPrice);
   final discountPercent = pdpScope?.discountPercent ??
       _resolvedDiscountPercent(product, sellingPrice, retailPrice);
 
@@ -186,14 +196,16 @@ Widget buildProductBlock(
           ? incomingHeroTag
           : sourceHeroTag);
   const pdpHorizontalInsetDp = 16.0;
-  final imageRadius = embedInPdp
-      ? BorderRadius.circular(env.r.dp(radiusDp))
-      : embedInGrid && cardView
-          ? BorderRadius.only(
-              topLeft: Radius.circular(env.r.dp(radiusDp)),
-              topRight: Radius.circular(env.r.dp(radiusDp)),
-            )
-          : BorderRadius.circular(env.r.dp(radiusDp));
+  final imageRadius = embedInList
+      ? BorderRadius.zero
+      : embedInPdp || imagePadding
+          ? BorderRadius.circular(env.r.dp(radiusDp))
+          : embedInGrid && cardView
+              ? BorderRadius.only(
+                  topLeft: Radius.circular(env.r.dp(radiusDp)),
+                  topRight: Radius.circular(env.r.dp(radiusDp)),
+                )
+              : BorderRadius.circular(env.r.dp(radiusDp));
 
   Widget image = embedInPdp && productImages.length > 1
       ? _PdpProductImageCarousel(
@@ -331,6 +343,13 @@ Widget buildProductBlock(
     }
   }
 
+  if (imagePadding && !embedInList && !embedInPdp) {
+    image = Padding(
+      padding: EdgeInsets.all(env.r.dp(8)),
+      child: image,
+    );
+  }
+
   final gridMetaPadH = kGridProductCardContentPadDp;
   final gridMetaPadTop = kGridProductCardContentPadDp;
   // Bottom inset for grid cards is applied on the add-to-cart row in [product_grid].
@@ -372,8 +391,9 @@ Widget buildProductBlock(
           maxLines: titleMaxLines,
           overflow: TextOverflow.ellipsis,
           textAlign: align,
-          style: TextStyle(
-            fontSize: env.r.sp(14, min: 12, max: 16),
+          style: AppDropThemeData.textStyle(
+            fontFamily: fontFamily,
+            fontSize: titleFontSize,
             fontWeight: titleFontWeight,
             color: titleColor,
           ),
@@ -385,7 +405,8 @@ Widget buildProductBlock(
             child: Row(
               mainAxisAlignment: _main(align),
               children: [
-                Icon(FluentIcons.star_20_filled, size: env.r.dp(16), color: ratingColor),
+                Icon(FluentIcons.star_20_filled,
+                    size: env.r.dp(16), color: ratingColor),
                 SizedBox(width: env.r.dp(4)),
                 Text(
                   rating.toStringAsFixed(1),
@@ -436,14 +457,35 @@ Widget buildProductBlock(
     ),
   );
 
-  final addToCartRadius = _addToCartRadius(buttonShape, env.r);
-  final isOutlined = buttonType == 'outlined';
-  final addToCartBg = isOutlined ? Colors.transparent : filledButtonBg;
-  final addToCartFg = isOutlined ? outlinedButtonColor : filledButtonColor;
+  final ctaText = productBlockSetting(merged, 'cta_text', 'Add to Cart');
+  final variantCtaText =
+      productBlockSetting(merged, 'variant_cta_text', 'Choose options');
+  final ctaLabel =
+      productListCtaLabel(product, ctaText, variantLabel: variantCtaText);
+  final ctaFontSize = productCtaFontSize(
+    productBlockSetting(merged, 'cta_font_size', 'Medium'),
+    env.r,
+  );
+  final ctaFontWeight = productCtaFontWeight(
+    productBlockSetting(merged, 'cta_font_variation', 'semibold'),
+  );
+
+  final addToCartRadius = env.r.dp(buttonCornerRadiusDp);
+  final soldOutCta = productSoldOutCta(merged, product);
+  final addToCartBg = soldOutCta == null
+      ? (isOutlined ? Colors.transparent : filledButtonBg)
+      : (isOutlined ? Colors.transparent : soldOutCta.background);
+  final addToCartFg = soldOutCta?.foreground ??
+      (isOutlined ? outlinedButtonColor : filledButtonColor);
+  final addToCartBorder = soldOutCta?.background ??
+      (isOutlined ? outlinedButtonBg : filledButtonBg);
+  final shownCtaLabel = soldOutCta?.label ?? ctaLabel;
 
   final addToCartButton = Padding(
     padding: EdgeInsets.fromLTRB(env.r.dp(8), 0, env.r.dp(8), env.r.dp(10)),
-    child: Material(
+    child: Builder(
+      builder: (buttonContext) {
+        return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(addToCartRadius),
       child: InkWell(
@@ -451,6 +493,10 @@ Widget buildProductBlock(
         onTap: action == null
             ? null
             : () {
+                if (soldOutCta != null) {
+                  showProductSoldOutSnackBar(buttonContext);
+                  return;
+                }
                 final payload = embedInPdp && pdpScope != null
                     ? {
                         ...action,
@@ -458,7 +504,7 @@ Widget buildProductBlock(
                         'product': pdpScope.effectiveProduct,
                       }
                     : action;
-                env.dispatchAction(context, payload);
+                env.dispatchAction(buttonContext, payload);
               },
         child: Ink(
           height: env.r.dp(36),
@@ -466,25 +512,76 @@ Widget buildProductBlock(
             color: addToCartBg,
             borderRadius: BorderRadius.circular(addToCartRadius),
             border: isOutlined
-                ? Border.all(color: outlinedButtonBg, width: 1.2)
-                : Border.all(color: filledButtonBg, width: 1),
+                ? Border.all(color: addToCartBorder, width: 1.2)
+                : Border.all(color: addToCartBorder, width: 1),
           ),
           child: Center(
             child: Text(
-              'Add to Cart',
-              style: TextStyle(
+              shownCtaLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppDropThemeData.textStyle(
+                fontFamily: fontFamily,
                 color: addToCartFg,
-                fontSize: env.r.sp(13, min: 11, max: 15),
-                fontWeight: FontWeight.w600,
+                fontSize: ctaFontSize,
+                fontWeight: ctaFontWeight,
               ),
             ),
           ),
         ),
       ),
+        );
+      },
     ),
   );
 
+  if (embedInList) {
+    final canTap = env.interactiveFeaturesEnabled;
+    return ProductListCard(
+      image: image,
+      title: displayTitle,
+      titleColor: titleColor,
+      titleFontWeight: titleFontWeight,
+      titleFontSize: titleFontSize,
+      titleMaxLines: titleMaxLines,
+      fontFamily: fontFamily,
+      sellingPrice: sellingPrice,
+      retailPrice: retailPrice,
+      product: product,
+      priceDisplay: priceDisplay,
+      showRating: b('show_rating', true),
+      rating: rating,
+      showRatingCount: b('show_rating_count', true),
+      ratingCount: ratingCount,
+      ratingColor: ratingColor,
+      ratingFontColor: ratingFontColor,
+      showAddToCart: showAddToCart,
+      ctaLabel: shownCtaLabel,
+      ctaFontSize: ctaFontSize,
+      ctaFontWeight: ctaFontWeight,
+      addToCartBg: addToCartBg,
+      addToCartFg: addToCartFg,
+      addToCartRadius: addToCartRadius,
+      isOutlined: isOutlined,
+      outlineColor: addToCartBorder,
+      envR: env.r,
+      onOpen: !canTap || action == null
+          ? null
+          : () => env.dispatchAction(context, action),
+      soldOut: soldOutCta != null,
+      onAddToCart: !canTap
+          ? null
+          : () => env.dispatchAction(context, {
+                'type': 'add_to_cart',
+                if (productId.isNotEmpty) 'productId': productId,
+                'title': title,
+                'product': product,
+              }),
+    );
+  }
+
   final body = Column(
+    mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       image,
@@ -499,7 +596,11 @@ Widget buildProductBlock(
   }
 
   if (embedInPdp) {
-    final pdpImage = wrapPdpStagger(context, PdpStaggerSlot.image, image);
+    final pdpImage = wrapPdpStagger(
+      context,
+      PdpStaggerSlot.image,
+      image,
+    );
     final pdpTitle = wrapPdpStagger(
       context,
       PdpStaggerSlot.title,
@@ -512,6 +613,8 @@ Widget buildProductBlock(
         titleMaxLines: titleMaxLines,
         titleColor: titleColor,
         titleFontWeight: titleFontWeight,
+        titleFontSize: titleFontSize,
+        fontFamily: fontFamily,
         showRating: showRating,
         rating: rating,
         showRatingCount: showRatingCount,
@@ -677,12 +780,17 @@ class _PdpProductImageCarouselState extends State<_PdpProductImageCarousel> {
             itemCount: widget.images.length,
             onPageChanged: (value) => setState(() => _index = value),
             itemBuilder: (_, i) {
+              final displayUrl = shopifyResizedImageUrl(
+                    widget.images[i],
+                    width: kPdpProductImageWidth,
+                  ) ??
+                  widget.images[i];
               final imageWidget = i == 0 &&
                       widget.productId.isNotEmpty &&
                       widget.heroTag.isNotEmpty
                   ? buildProductHeroImage(
                       productId: widget.productId,
-                      imageUrl: widget.images[i],
+                      imageUrl: displayUrl,
                       aspectRatio: widget.aspectRatio,
                       boxFit: BoxFit.cover,
                       imageBg: widget.imageBg,
@@ -695,10 +803,9 @@ class _PdpProductImageCarouselState extends State<_PdpProductImageCarousel> {
                       child: ColoredBox(
                         color: widget.imageBg,
                         child: AppDropNetworkImage(
-                          url: widget.images[i],
+                          url: displayUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              ProductImagePlaceholder(
+                          errorBuilder: (_, __, ___) => ProductImagePlaceholder(
                             backgroundColor: widget.imageBg,
                           ),
                         ),
@@ -791,23 +898,19 @@ Widget _buildFittedPriceRow({
   required int discountPercent,
   required ProductPriceDisplayConfig priceDisplay,
 }) {
-  return Row(
-    mainAxisAlignment: _main(align),
-    children: [
-      Expanded(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: _fittedBoxAlign(align),
-          child: ProductPriceRow(
-            sellingPrice: sellingPrice,
-            retailPrice: retailPrice,
-            discountPercent: discountPercent,
-            config: priceDisplay,
-            align: align,
-          ),
-        ),
-      ),
-    ],
+  // FittedBox scales a wide price down to the card width. It sizes to the
+  // price itself, so a column with or without a discount does not leave a gap.
+  return FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: _fittedBoxAlign(align),
+    child: ProductPriceRow(
+      sellingPrice: sellingPrice,
+      retailPrice: retailPrice,
+      discountPercent: discountPercent,
+      config: priceDisplay,
+      align: align,
+      layout: priceDisplay.layout,
+    ),
   );
 }
 
@@ -881,20 +984,6 @@ int _toInt(dynamic v) {
   return 0;
 }
 
-double _addToCartRadius(String style, dynamic r) {
-  switch (style) {
-    case 'rounded':
-      return r.dp(8);
-    case 'blunt':
-    case 'pill':
-      return r.dp(999);
-    case 'corner':
-    case 'sharp':
-    default:
-      return 0;
-  }
-}
-
 /// PDP title block (vendor, title, rating) — stagger slot: [PdpStaggerSlot.title].
 Widget _pdpTitleSection({
   required AppDropBuildEnv env,
@@ -905,6 +994,8 @@ Widget _pdpTitleSection({
   required int? titleMaxLines,
   required Color titleColor,
   required FontWeight titleFontWeight,
+  required double titleFontSize,
+  required String fontFamily,
   required bool showRating,
   required double rating,
   required bool showRatingCount,
@@ -944,8 +1035,9 @@ Widget _pdpTitleSection({
           maxLines: titleMaxLines,
           overflow: TextOverflow.ellipsis,
           textAlign: align,
-          style: TextStyle(
-            fontSize: env.r.sp(14, min: 12, max: 16),
+          style: AppDropThemeData.textStyle(
+            fontFamily: fontFamily,
+            fontSize: titleFontSize,
             fontWeight: titleFontWeight,
             color: titleColor,
           ),
@@ -955,7 +1047,8 @@ Widget _pdpTitleSection({
           Row(
             mainAxisAlignment: _main(align),
             children: [
-              Icon(FluentIcons.star_20_filled, size: env.r.dp(16), color: ratingColor),
+              Icon(FluentIcons.star_20_filled,
+                  size: env.r.dp(16), color: ratingColor),
               SizedBox(width: env.r.dp(4)),
               Text(
                 rating.toStringAsFixed(1),

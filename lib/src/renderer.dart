@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'responsive.dart';
 import 'widget_node.dart';
 import 'registry.dart';
+import '../plp/plp_layout_scope.dart';
 import '../utils/component_shadow.dart';
 import '../utils/media_block_padding.dart';
 
@@ -70,6 +71,7 @@ bool _shadowExcludedForWidgetType(String type) {
     case 'pdp_product_image':
     case 'pdp_product_label':
     case 'pdp_product_price':
+    case 'pdp_product_quantity':
     case 'pdp_product_cta':
       return true;
     default:
@@ -82,7 +84,10 @@ bool _shadowExcludedForWidgetType(String type) {
 bool _shadowExcludedForWidget(WidgetNode node) {
   if (_shadowExcludedForWidgetType(node.type)) return true;
   final t = node.type.toLowerCase().trim();
-  if (t == 'product_block' && node.b('embed_in_grid')) return true;
+  if (t == 'product_block' &&
+      (node.b('embed_in_grid') || node.b('embed_in_list'))) {
+    return true;
+  }
   if (t == 'product_block' && node.b('embed_in_pdp')) return true;
   return false;
 }
@@ -93,7 +98,7 @@ Widget _maybeApplyComponentShadow(
   WidgetNode node,
   Widget child,
 ) {
-  if (_shadowExcludedForWidget(node)) return child;
+  if (_shadowExcludedForWidget(node) || !blockShadowEnabled(node)) return child;
 
   return DecoratedBox(
     decoration: BoxDecoration(
@@ -177,7 +182,7 @@ class AppDropRenderer extends StatelessWidget {
   Widget build(BuildContext context) {
     final reg = registry ?? WidgetRegistry.defaults();
 
-    return LayoutBuilder(
+    final page = LayoutBuilder(
       builder: (context, c) {
         if (c.maxWidth <= 0 || c.maxHeight <= 0) {
           // Parent has not been laid out yet; skip this build pass.
@@ -252,5 +257,10 @@ class AppDropRenderer extends StatelessWidget {
         );
       },
     );
+
+    if (context.getInheritedWidgetOfExactType<PlpLayoutScope>() != null) {
+      return page;
+    }
+    return PlpLayoutHost(child: page);
   }
 }

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../features/rating_review_feature.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
+import '../utils/product_image_frame.dart';
 import '../utils/component_shadow.dart';
+import '../utils/appdrop_snackbar.dart';
 import '../utils/product_block_theme_helpers.dart';
+import 'product_list_card.dart';
 
 /// Horizontal and below-image inset for grid product cards.
 /// Keep in sync with [kGridProductCardContentPadDp] in product_block.dart.
@@ -58,9 +61,6 @@ double _viewAllSpForVariation(String v, AppDropBuildEnv env) {
   }
 }
 
-/// Largest logical tile width before a vertical grid adds another column.
-const double kProductGridMaxTileDp = 190;
-
 /// Tile styling resolved from the theme scope and the grid's CMS node.
 ///
 /// Extracted from [buildProductGrid] so a paginated sliver grid can render
@@ -70,7 +70,7 @@ class ProductGridTileStyle {
     required this.showAddToCart,
     required this.addToCartTitle,
     required this.addToCartIsOutlined,
-    required this.addToCartShape,
+    required this.addToCartRadiusDp,
     required this.addToCartTitleSize,
     required this.addToCartCtaColor,
     required this.addToCartCtaFontColor,
@@ -80,30 +80,26 @@ class ProductGridTileStyle {
     required this.showVendor,
     required this.showRating,
     required this.showSwatches,
+    required this.titleSize,
+    required this.stackedPrice,
+    required this.showRetailPrice,
+    required this.showDiscountValue,
   });
 
   factory ProductGridTileStyle.resolve(BuildContext context, WidgetNode node) {
     final pb = AppDropThemeScope.maybeOf(context)?.productBlock ??
         const <String, dynamic>{};
-
-    final buttonStyleRaw =
-        (pb['button_style'] ?? '').toString().toLowerCase().trim();
-    final buttonParts = buttonStyleRaw
-        .split(RegExp(r'[_\-\s]+'))
-        .where((e) => e.isNotEmpty)
-        .toList();
-    final shape = buttonParts.isNotEmpty ? buttonParts.first : 'rounded';
-    final isOutlined =
-        (buttonParts.length > 1 ? buttonParts[1] : 'filled') == 'outlined';
+    final isOutlined = productBlockButtonOutlined(pb);
 
     return ProductGridTileStyle(
       showAddToCart: _b(pb, 'add_to_cart', node.b('showAddToCart', def: false)),
       addToCartTitle: _addToCartTitle(node),
       addToCartIsOutlined: isOutlined,
-      addToCartShape: shape,
+      addToCartRadiusDp: productButtonCornerRadiusDp(pb),
       addToCartTitleSize: node.d('addToCartTitleSize', def: 16),
       addToCartCtaColor: isOutlined
-          ? (parseHexColor((pb['outlined_button_bg'] ?? '#FF6A00').toString()) ??
+          ? (parseHexColor(
+                  (pb['outlined_button_bg'] ?? '#FF6A00').toString()) ??
               const Color(0xFFFF6A00))
           : (parseHexColor((pb['filled_button_bg'] ?? '#FF6A00').toString()) ??
               const Color(0xFFFF6A00)),
@@ -121,13 +117,19 @@ class ProductGridTileStyle {
       // Rating & Review feature temporarily disabled
       showRating: kRatingReviewFeatureEnabled && _b(pb, 'show_rating', true),
       showSwatches: _b(pb, 'show_swatches', true),
+      titleSize: productBlockSetting(pb, 'title_size', 'Medium'),
+      stackedPrice:
+          productBlockSetting(pb, 'price_layout', 'row').toLowerCase() ==
+              'column',
+      showRetailPrice: _b(pb, 'show_retail_price', true),
+      showDiscountValue: _b(pb, 'show_discount', true),
     );
   }
 
   final bool showAddToCart;
   final String addToCartTitle;
   final bool addToCartIsOutlined;
-  final String addToCartShape;
+  final double addToCartRadiusDp;
   final double addToCartTitleSize;
   final Color addToCartCtaColor;
   final Color addToCartCtaFontColor;
@@ -137,6 +139,10 @@ class ProductGridTileStyle {
   final bool showVendor;
   final bool showRating;
   final bool showSwatches;
+  final String titleSize;
+  final bool stackedPrice;
+  final bool showRetailPrice;
+  final bool showDiscountValue;
 
   /// Height the add-to-cart row adds below the card body.
   double addToCartExtent(R r) => showAddToCart
@@ -146,10 +152,28 @@ class ProductGridTileStyle {
       : 0.0;
 
   /// Total tile height for a tile [tileWidth] wide.
-  double tileHeight(AppDropBuildEnv env, double tileWidth) {
+  ///
+  /// [reserveVendor] and [reserveSwatches] stay false when none of the
+  /// visible products actually paint those rows. Reserving them anyway
+  /// leaves a blank band between the price and the add-to-cart button.
+  double tileHeight(
+    AppDropBuildEnv env,
+    double tileWidth, {
+    bool reserveVendor = true,
+    bool reserveSwatches = true,
+  }) {
     final imageH = tileWidth / aspect;
     final metaH = _estimateMetaHeight(
-        env, maxLines, showVendor, showRating, showSwatches);
+      env,
+      maxLines,
+      showVendor && reserveVendor,
+      showRating,
+      showSwatches && reserveSwatches,
+      titleSize: titleSize,
+      stackedPrice: stackedPrice,
+      showRetailPrice: showRetailPrice,
+      showDiscountValue: showDiscountValue,
+    );
     return imageH + metaH + addToCartExtent(env.r);
   }
 }
@@ -178,6 +202,8 @@ ProductGridMetrics resolveProductGridMetrics({
   required double width,
   required double spacingDp,
   bool carousel = false,
+  bool reserveVendor = true,
+  bool reserveSwatches = true,
 }) {
   final spacing = env.r.dp(spacingDp);
   final maxTileW = env.r.dp(kProductGridMaxTileDp);
@@ -189,13 +215,22 @@ ProductGridMetrics resolveProductGridMetrics({
     tileWidth = maxTileW.clamp(120.0, width * 0.48);
   } else {
     columns = (width / maxTileW).floor().clamp(2, 3);
-    tileWidth = (width - spacing * (columns - 1)) / columns;
+    tileWidth = productGridImageWidth(
+      viewportWidth: width,
+      spacing: spacing,
+      maxTileWidth: maxTileW,
+    );
   }
 
   return ProductGridMetrics(
     columns: columns,
     tileWidth: tileWidth,
-    tileHeight: style.tileHeight(env, tileWidth),
+    tileHeight: style.tileHeight(
+      env,
+      tileWidth,
+      reserveVendor: reserveVendor,
+      reserveSwatches: reserveSwatches,
+    ),
     crossAxisSpacing: spacing,
     mainAxisSpacing: spacing * 0.65,
   );
@@ -213,6 +248,8 @@ Widget buildProductGridTile({
   required ProductGridTileStyle style,
   required ProductGridMetrics metrics,
   required bool horizontalRow,
+  bool listLayout = false,
+  bool hugContent = false,
 }) {
   return _buildProductGridTile(
     context: context,
@@ -222,7 +259,7 @@ Widget buildProductGridTile({
     showAddToCart: style.showAddToCart,
     addToCartTitle: style.addToCartTitle,
     addToCartIsOutlined: style.addToCartIsOutlined,
-    addToCartShape: style.addToCartShape,
+    addToCartRadiusDp: style.addToCartRadiusDp,
     addToCartTitleSize: style.addToCartTitleSize,
     addToCartCtaColor: style.addToCartCtaColor,
     addToCartCtaFontColor: style.addToCartCtaFontColor,
@@ -230,6 +267,8 @@ Widget buildProductGridTile({
     tileH: metrics.tileHeight,
     radiusDp: style.radiusDp,
     horizontalRow: horizontalRow,
+    listLayout: listLayout,
+    hugContent: hugContent,
   );
 }
 
@@ -241,7 +280,7 @@ Widget _buildProductGridTile({
   required bool showAddToCart,
   required String addToCartTitle,
   required bool addToCartIsOutlined,
-  required String addToCartShape,
+  required double addToCartRadiusDp,
   required double addToCartTitleSize,
   required Color addToCartCtaColor,
   required Color addToCartCtaFontColor,
@@ -249,6 +288,8 @@ Widget _buildProductGridTile({
   required double tileH,
   required double radiusDp,
   required bool horizontalRow,
+  bool listLayout = false,
+  bool hugContent = false,
 }) {
   final addToCartTextColor = addToCartCtaFontColor;
   final pb = AppDropThemeScope.maybeOf(context)?.productBlock ??
@@ -258,6 +299,11 @@ Widget _buildProductGridTile({
         (pb['card_bg_color'] ?? pb['image_bg_color'] ?? '#FFFFFF').toString(),
       ) ??
       Colors.white;
+  final ctaText = _themeCtaText(pb, 'cta_text', addToCartTitle);
+  final variantCtaText = _themeCtaText(pb, 'variant_cta_text', 'Choose options');
+  final ctaFontVariation =
+      productBlockSetting(pb, 'cta_font_variation', 'semibold');
+  final ctaSizeName = productBlockSetting(pb, 'cta_font_size', 'Medium');
 
   final Map<String, dynamic>? gridAction = () {
     final a = item['action'];
@@ -274,17 +320,28 @@ Widget _buildProductGridTile({
   }();
   final productId = _gridItemProductId(item);
   final pidStr = productId?.toString() ?? '';
-  final heroTag = pidStr.isEmpty
-      ? ''
-      : ProductHeroTags.sourceInstance(pidStr, item);
+  final heroTag =
+      pidStr.isEmpty ? '' : ProductHeroTags.sourceInstance(pidStr, item);
+
+  final openAction = gridAction == null
+      ? null
+      : {
+          ...gridAction,
+          if (heroTag.isNotEmpty) 'heroTag': heroTag,
+          'product': {
+            ...item,
+            if (heroTag.isNotEmpty) 'heroTag': heroTag,
+          },
+        };
 
   final block = WidgetNode(
     type: 'product_block',
     props: {
-      'embed_in_grid': true,
+      'embed_in_grid': !listLayout,
+      'embed_in_list': listLayout,
       'product': item,
       if (heroTag.isNotEmpty) 'heroTag': heroTag,
-      if (gridAction != null) 'action': gridAction,
+      if (openAction != null) 'action': openAction,
       'wishlistAction': {
         'type': 'toggle_wishlist',
         if (productId != null) 'productId': productId,
@@ -295,16 +352,26 @@ Widget _buildProductGridTile({
 
   final productContent = env.renderNode(context, block) as Widget;
 
+  if (listLayout) {
+    final listRadius = BorderRadius.circular(env.r.dp(radiusDp));
+    if (!cardView) return productContent;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: listRadius,
+        boxShadow: appDropBlockShadowsFor(context, node),
+      ),
+      child: ClipRRect(
+        borderRadius: listRadius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: cardBg),
+          child: productContent,
+        ),
+      ),
+    );
+  }
+
   Widget wrapCardTap(Widget child) {
-    if (gridAction == null) return child;
-    final openAction = {
-      ...gridAction,
-      if (heroTag.isNotEmpty) 'heroTag': heroTag,
-      'product': {
-        ...item,
-        if (heroTag.isNotEmpty) 'heroTag': heroTag,
-      },
-    };
+    if (listLayout || openAction == null) return child;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => env.dispatchAction(context, openAction),
@@ -312,59 +379,53 @@ Widget _buildProductGridTile({
     );
   }
 
-  final productArea = ClipRect(
-    child: Align(
-      alignment: Alignment.topCenter,
-      child: productContent,
-    ),
-  );
-
   final radiusPx = BorderRadius.circular(env.r.dp(radiusDp));
   Widget gridCardShell({
     required Widget child,
     Widget? bottom,
   }) {
-    if (!cardView) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: child),
-          if (bottom != null) bottom,
-        ],
-      );
-    }
+    final column = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        child,
+        if (bottom != null) const Spacer(),
+        if (bottom != null) bottom,
+      ],
+    );
+    if (!cardView) return column;
     return Container(
       decoration: BoxDecoration(
         borderRadius: radiusPx,
-        boxShadow: appDropBlockShadowsOf(context),
+        boxShadow: appDropBlockShadowsFor(context, node),
       ),
       child: ClipRRect(
         borderRadius: radiusPx,
         child: DecoratedBox(
           decoration: BoxDecoration(color: cardBg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: child),
-              if (bottom != null) bottom,
-            ],
-          ),
+          child: column,
         ),
       ),
     );
   }
 
   if (!showAddToCart) {
-    final card = gridCardShell(child: wrapCardTap(productArea));
-    return SizedBox(
-      width: horizontalRow ? tileW : double.infinity,
-      height: tileH,
-      child: card,
+    return _gridTileBox(
+      horizontalRow: horizontalRow,
+      tileW: tileW,
+      tileH: tileH,
+      hugContent: hugContent,
+      child: gridCardShell(child: wrapCardTap(productContent)),
     );
   }
 
-  final atcRadius = _addToCartRadiusFromStyle(addToCartShape, env.r);
+  final atcRadius = env.r.dp(addToCartRadiusDp);
   final atcButtonHeight = env.r.dp(_gridAtcButtonDp);
+  final soldOutCta = productSoldOutCta(pb, item);
+  final atcFill = soldOutCta == null
+      ? addToCartCtaColor
+      : soldOutCta.background;
+  final atcTextColor =
+      soldOutCta?.foreground ?? addToCartTextColor;
   final addPayload = {
     'type': 'add_to_cart',
     if (pidStr.isNotEmpty) 'productId': pidStr,
@@ -373,55 +434,70 @@ Widget _buildProductGridTile({
   };
 
   final atcDecoration = BoxDecoration(
-    color: addToCartIsOutlined ? Colors.transparent : addToCartCtaColor,
+    color: addToCartIsOutlined ? Colors.transparent : atcFill,
     borderRadius: BorderRadius.circular(atcRadius),
     border: addToCartIsOutlined
-        ? Border.all(color: addToCartCtaColor, width: 1.5)
+        ? Border.all(color: atcFill, width: 1.5)
         : null,
-    boxShadow: addToCartIsOutlined
+    boxShadow: addToCartIsOutlined || soldOutCta != null
         ? null
         : [
             BoxShadow(
-              color: addToCartCtaColor.withValues(alpha: 0.18),
+              color: atcFill.withValues(alpha: 0.18),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
           ],
   );
 
-  final atcButton = SizedBox(
+  final atcButton = Builder(
+    builder: (buttonContext) {
+      return SizedBox(
     height: atcButtonHeight,
     child: Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(atcRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => env.dispatchAction(context, addPayload),
+        onTap: () {
+          if (soldOutCta != null) {
+            showProductSoldOutSnackBar(buttonContext);
+            return;
+          }
+          env.dispatchAction(buttonContext, addPayload);
+        },
         child: Ink(
           decoration: atcDecoration,
           child: Center(
             child: Text(
-              addToCartTitle.isEmpty ? 'Add to Cart' : addToCartTitle,
+              soldOutCta?.label ??
+                  productListCtaLabel(
+                    item,
+                    ctaText,
+                    variantLabel: variantCtaText,
+                  ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: addToCartTextColor,
-                fontSize: env.r.sp(
-                  addToCartTitleSize.clamp(12, 24).toDouble(),
-                  min: 12,
-                  max: 24,
-                ),
-                fontWeight: FontWeight.w600,
+              style: AppDropThemeData.textStyle(
+                fontFamily: AppDropThemeScope.maybeOf(context)
+                        ?.appStyling
+                        .fontFamily ??
+                    'Poppins',
+                color: atcTextColor,
+                fontSize: productCtaFontSize(ctaSizeName, env.r),
+                fontWeight: productCtaFontWeight(ctaFontVariation),
               ),
             ),
           ),
         ),
       ),
     ),
+      );
+    },
   );
 
   final card = gridCardShell(
-    child: wrapCardTap(productArea),
+    child: wrapCardTap(productContent),
     bottom: Padding(
       padding: EdgeInsets.fromLTRB(
         env.r.dp(_gridProductCardContentPadDp),
@@ -433,10 +509,31 @@ Widget _buildProductGridTile({
     ),
   );
 
+  return _gridTileBox(
+    horizontalRow: horizontalRow,
+    tileW: tileW,
+    tileH: tileH,
+    hugContent: hugContent,
+    child: card,
+  );
+}
+
+/// Carousel and sliver cells have a fixed height. The card fills that height
+/// and pins the button to the bottom. The inline grid passes [hugContent]
+/// and stretches each row to its tallest card.
+Widget _gridTileBox({
+  required bool horizontalRow,
+  required double tileW,
+  required double tileH,
+  required bool hugContent,
+  required Widget child,
+}) {
+  final Widget tile = horizontalRow ? SizedBox(width: tileW, child: child) : child;
+  if (hugContent) return tile;
   return SizedBox(
     width: horizontalRow ? tileW : double.infinity,
     height: tileH,
-    child: card,
+    child: tile,
   );
 }
 
@@ -470,6 +567,8 @@ Widget buildProductGrid(
   final gridTitleFontWeight = _gridTitleFontWeight(
     node.s('gridTitleFontWeight', def: 'bold'),
   );
+  final fontFamily =
+      AppDropThemeScope.maybeOf(context)?.appStyling.fontFamily ?? 'Poppins';
   final gridTitleAlign = node.s('gridTitleAlign', def: 'left').toLowerCase();
   final gridTitleColor =
       parseHexColor(node.s('gridTitleColor', def: '#000000')) ??
@@ -497,16 +596,39 @@ Widget buildProductGrid(
       }
 
       final style = ProductGridTileStyle.resolve(ctx, node);
+      final isList = PlpLayoutScope.watch(ctx)?.isList ?? false;
       final metrics = resolveProductGridMetrics(
         env: env,
         style: style,
         width: width,
         spacingDp: spacingDp,
         carousel: isCarousel,
+        reserveVendor: _gridItemsHaveVendor(itemsRaw),
+        reserveSwatches: _gridItemsHaveSwatches(itemsRaw),
       );
 
       Widget grid;
-      if (isCarousel) {
+      if (isList) {
+        grid = ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: itemsRaw.length,
+          separatorBuilder: (_, __) => SizedBox(height: env.r.dp(spacingDp)),
+          itemBuilder: (c, i) {
+            final item = Map<String, dynamic>.from(itemsRaw[i] as Map);
+            return buildProductGridTile(
+              context: c,
+              item: item,
+              node: node,
+              env: env,
+              style: style,
+              metrics: metrics,
+              horizontalRow: false,
+              listLayout: true,
+            );
+          },
+        );
+      } else if (isCarousel) {
         grid = SizedBox(
           height: metrics.tileHeight,
           child: ListView.separated(
@@ -531,26 +653,22 @@ Widget buildProductGrid(
           ),
         );
       } else {
-        grid = GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+        grid = _contentSizedProductGrid(
+          columns: metrics.columns,
+          crossAxisSpacing: metrics.crossAxisSpacing,
+          mainAxisSpacing: metrics.mainAxisSpacing,
           itemCount: itemsRaw.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: metrics.columns,
-            crossAxisSpacing: metrics.crossAxisSpacing,
-            mainAxisSpacing: metrics.mainAxisSpacing,
-            mainAxisExtent: metrics.tileHeight,
-          ),
-          itemBuilder: (c, i) {
+          itemBuilder: (i) {
             final item = Map<String, dynamic>.from(itemsRaw[i] as Map);
             return buildProductGridTile(
-              context: c,
+              context: ctx,
               item: item,
               node: node,
               env: env,
               style: style,
               metrics: metrics,
               horizontalRow: false,
+              hugContent: true,
             );
           },
         );
@@ -559,9 +677,10 @@ Widget buildProductGrid(
       Widget? header;
       if (useSectionHeader &&
           (showGridTitle && resolvedTitle.isNotEmpty || showViewAllButton)) {
-        final titleStyle = TextStyle(
+        final titleStyle = AppDropThemeData.textStyle(
+          fontFamily: fontFamily,
           fontSize: gridTitleFontSize > 0
-              ? env.r.sp(gridTitleFontSize, min: 11, max: 22)
+              ? env.r.sp(gridTitleFontSize, min: 11, max: 24)
               : _titleSpForVariation(gridTitleFontVariation, env),
           fontWeight: gridTitleFontWeight,
           color: gridTitleColor,
@@ -654,21 +773,79 @@ Widget buildProductGrid(
   );
 }
 
-double _estimateMetaHeight(AppDropBuildEnv env, int maxLines, bool showVendor,
-    bool showRating, bool showSwatches) {
+/// Rows of product cards. Every card in a row matches the tallest card, and
+/// the add-to-cart buttons sit on the same line.
+Widget _contentSizedProductGrid({
+  required int columns,
+  required double crossAxisSpacing,
+  required double mainAxisSpacing,
+  required int itemCount,
+  required Widget Function(int index) itemBuilder,
+}) {
+  final safeColumns = columns < 1 ? 1 : columns;
+  final rows = (itemCount / safeColumns).ceil();
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var row = 0; row < rows; row++) ...[
+        if (row > 0) SizedBox(height: mainAxisSpacing),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var col = 0; col < safeColumns; col++) ...[
+                if (col > 0) SizedBox(width: crossAxisSpacing),
+                Expanded(
+                  child: row * safeColumns + col < itemCount
+                      ? itemBuilder(row * safeColumns + col)
+                      : const SizedBox(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
+double _estimateMetaHeight(
+  AppDropBuildEnv env,
+  int maxLines,
+  bool showVendor,
+  bool showRating,
+  bool showSwatches, {
+  String titleSize = 'Medium',
+  bool stackedPrice = false,
+  bool showRetailPrice = true,
+  bool showDiscountValue = true,
+}) {
   // Compact grid meta — mirrors [buildProductBlock] when embed_in_grid is true.
   const gridMetaPadTop = _gridProductCardContentPadDp;
   const gridMetaPadBottom = 0.0;
   const vendorBottomGap = 2.0;
   const vendorLineDp = 16.0;
-  const titleLineDp = 20.0;
+  final normalizedTitle = titleSize.trim().toLowerCase();
+  final titleLineDp = normalizedTitle == 'large'
+      ? 24.0
+      : normalizedTitle == 'small'
+          ? 16.0
+          : 20.0;
   const titlePriceGap = 4.0;
-  const priceRowDp = 20.0;
+  // One line per visible price, sized to the rendered font plus the 2px
+  // gap the column layout inserts. Extra multiples here become blank space
+  // under the discount, above the add-to-cart button.
+  final priceRowDp = stackedPrice
+      ? 18.0 + (showRetailPrice ? 16.0 : 0) + (showDiscountValue ? 14.0 : 0)
+      : 20.0;
   const ratingBlockDp = 24.0;
   const swatchGapDp = 8.0;
   const swatchRowDp = 18.0;
-  // Buffer for font scaling / rounding vs [_gridAtcBlockDp] sum.
-  const safetyDp = 4.0;
+  // Carousel and catalog slivers still use a fixed row height. Font metrics
+  // run a few pixels past the line estimate; this keeps that cell from
+  // clipping the discount. The inline grid sizes each card to its content.
+  const safetyDp = 12.0;
 
   double h = env.r.dp(gridMetaPadTop + gridMetaPadBottom + safetyDp);
 
@@ -714,6 +891,23 @@ double _d(Map<String, dynamic> m, String k, double def) {
   return def;
 }
 
+bool _gridItemsHaveVendor(List<dynamic> items) {
+  for (final raw in items) {
+    if (raw is! Map) continue;
+    if ((raw['vendor'] ?? '').toString().trim().isNotEmpty) return true;
+  }
+  return false;
+}
+
+bool _gridItemsHaveSwatches(List<dynamic> items) {
+  for (final raw in items) {
+    if (raw is! Map) continue;
+    final swatches = raw['swatches'];
+    if (swatches is List && swatches.isNotEmpty) return true;
+  }
+  return false;
+}
+
 double _aspectFromIndex(int idx) {
   switch (idx) {
     case 0:
@@ -737,21 +931,13 @@ String _gridCollectionHeading(WidgetNode node) {
   return c;
 }
 
+String _themeCtaText(Map<String, dynamic> pb, String key, String fallback) {
+  final value = productBlockSetting(pb, key, '').trim();
+  return value.isEmpty ? fallback : value;
+}
+
 String _addToCartTitle(WidgetNode node) {
   final a = node.s('addToCartButtonTitle', def: '').trim();
   if (a.isNotEmpty) return a;
   return node.s('addToCartLabel', def: 'Add to cart');
-}
-
-double _addToCartRadiusFromStyle(String style, R r) {
-  switch (style) {
-    case 'sharp':
-      return 0;
-    case 'blunt':
-    case 'pill':
-      return r.dp(999);
-    case 'rounded':
-    default:
-      return r.dp(8);
-  }
 }
