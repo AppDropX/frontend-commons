@@ -31,9 +31,6 @@ class _AppDropTopNavSwipeBodyState extends State<AppDropTopNavSwipeBody>
   late final AnimationController _commitController;
   Animation<double>? _commitAnimation;
   double _dragOffset = 0;
-  double _panDx = 0;
-  double _panDy = 0;
-  bool _isHorizontalPan = false;
   bool _isCommitting = false;
   int? _pendingIndex;
 
@@ -70,7 +67,6 @@ class _AppDropTopNavSwipeBodyState extends State<AppDropTopNavSwipeBody>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex && !_isCommitting) {
       _dragOffset = 0;
-      _resetPanTracking();
     }
   }
 
@@ -80,30 +76,8 @@ class _AppDropTopNavSwipeBodyState extends State<AppDropTopNavSwipeBody>
 
   bool get _canSwipeToNext => widget.selectedIndex < widget.tabCount - 1;
 
-  void _resetPanTracking() {
-    _panDx = 0;
-    _panDy = 0;
-    _isHorizontalPan = false;
-  }
-
-  void _onPanStart(DragStartDetails _) {
+  void _onDragUpdate(DragUpdateDetails details) {
     if (!_canSwipe || _isCommitting) return;
-    _resetPanTracking();
-  }
-
-  void _onPanUpdate(DragUpdateDetails details) {
-    if (!_canSwipe || _isCommitting) return;
-
-    _panDx += details.delta.dx;
-    _panDy += details.delta.dy;
-
-    if (!_isHorizontalPan) {
-      final absDx = _panDx.abs();
-      final absDy = _panDy.abs();
-      if (absDx < 8 && absDy < 8) return;
-      if (absDx <= absDy) return;
-      _isHorizontalPan = true;
-    }
 
     var nextOffset = _dragOffset + details.delta.dx;
     if (!_canSwipeToPrevious && nextOffset > 0) {
@@ -115,9 +89,8 @@ class _AppDropTopNavSwipeBodyState extends State<AppDropTopNavSwipeBody>
     setState(() => _dragOffset = nextOffset);
   }
 
-  void _onPanEnd(DragEndDetails details) {
-    if (!_canSwipe || _isCommitting || !_isHorizontalPan) {
-      _resetPanTracking();
+  void _onDragEnd(DragEndDetails details) {
+    if (!_canSwipe || _isCommitting) {
       _snapBack();
       return;
     }
@@ -134,8 +107,6 @@ class _AppDropTopNavSwipeBodyState extends State<AppDropTopNavSwipeBody>
       target = widget.selectedIndex - 1;
     }
 
-    _resetPanTracking();
-
     if (target == null) {
       _snapBack();
       return;
@@ -144,8 +115,7 @@ class _AppDropTopNavSwipeBodyState extends State<AppDropTopNavSwipeBody>
     _commitSwipe(target, width);
   }
 
-  void _onPanCancel() {
-    _resetPanTracking();
+  void _onDragCancel() {
     _snapBack();
   }
 
@@ -182,10 +152,9 @@ class _AppDropTopNavSwipeBodyState extends State<AppDropTopNavSwipeBody>
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onPanStart: _onPanStart,
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      onPanCancel: _onPanCancel,
+      onHorizontalDragUpdate: _onDragUpdate,
+      onHorizontalDragEnd: _onDragEnd,
+      onHorizontalDragCancel: _onDragCancel,
       child: ClipRect(
         child: AnimatedSwitcher(
           duration: _commitDuration,
