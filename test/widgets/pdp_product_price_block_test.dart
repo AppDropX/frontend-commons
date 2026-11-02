@@ -177,6 +177,49 @@ void main() {
     expect(retail.right, lessThan(selling.left + 1));
   });
 
+  testWidgets('price range off still shows product price before variant pick', (
+    tester,
+  ) async {
+    final controller = PdpProductController(rangedProduct());
+    expect(controller.hasSelection, isFalse);
+    expect(controller.sellingPrice, 100);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PdpProductScope(
+            controller: controller,
+            child: Builder(
+              builder: (context) {
+                return buildPdpProductPriceBlock(
+                  context,
+                  WidgetNode(
+                    type: 'pdp_product_price',
+                    props: {
+                      'product': rangedProduct(),
+                      'price_range': false,
+                      'price_style': 'current_compare',
+                    },
+                  ),
+                  AppDropBuildEnv(
+                    r: R.fromConstraints(
+                      context,
+                      const BoxConstraints(maxWidth: 330, maxHeight: 700),
+                    ),
+                    renderNode: (_, __) => const SizedBox.shrink(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('₹100'), findsOneWidget);
+    expect(find.textContaining(' - '), findsNothing);
+  });
+
   testWidgets('no range stays in a row even if an old column flag is set', (
     tester,
   ) async {

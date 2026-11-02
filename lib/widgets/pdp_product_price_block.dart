@@ -20,7 +20,13 @@ Widget buildPdpProductPriceBlock(
   final variantChosen = scope?.hasSelection ?? false;
   final sellingSpread = rangeOn && !variantChosen && (sellingEnds?.hasSpread ?? false);
   final retailSpread = rangeOn && !variantChosen && (retailEnds?.hasSpread ?? false);
-  if (!sellingSpread && !retailSpread && selling <= 0 && (sellingEnds == null || sellingEnds.low <= 0)) {
+  final fallbackSelling = selling > 0
+      ? selling
+      : (sellingEnds?.low ?? _toDouble(product['sellingPrice']));
+  if (!sellingSpread &&
+      !retailSpread &&
+      fallbackSelling <= 0 &&
+      (sellingEnds == null || sellingEnds.low <= 0)) {
     return const SizedBox.shrink();
   }
 
@@ -85,10 +91,16 @@ Widget buildPdpProductPriceBlock(
     if (first != null) pieces.add(first);
     if (second != null) pieces.add(second);
   } else {
-    final shownSelling =
-        !variantChosen && rangeOn && sellingEnds != null ? sellingEnds.low : selling;
-    final shownRetail =
-        !variantChosen && rangeOn && retailEnds != null ? retailEnds.low : retail;
+    final baseSelling = selling > 0 ? selling : (sellingEnds?.low ?? 0);
+    final baseRetail = retail > 0
+        ? retail
+        : (retailEnds?.low ?? _toDouble(product['retailPrice']));
+    final shownSelling = !variantChosen && rangeOn && sellingEnds != null
+        ? sellingEnds.low
+        : baseSelling;
+    final shownRetail = !variantChosen && rangeOn && retailEnds != null
+        ? retailEnds.low
+        : baseRetail;
     if (shownSelling <= 0) return const SizedBox.shrink();
     final shownCompare = shownRetail > shownSelling &&
         shownRetail > 0 &&

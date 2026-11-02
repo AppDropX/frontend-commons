@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../features/rating_review_feature.dart';
 import '../theme_library.dart';
 import '../utils/color.dart';
@@ -300,7 +301,8 @@ Widget _buildProductGridTile({
       ) ??
       Colors.white;
   final ctaText = _themeCtaText(pb, 'cta_text', addToCartTitle);
-  final variantCtaText = _themeCtaText(pb, 'variant_cta_text', 'Choose options');
+  final variantCtaText =
+      _themeCtaText(pb, 'variant_cta_text', 'Choose options');
   final ctaFontVariation =
       productBlockSetting(pb, 'cta_font_variation', 'semibold');
   final ctaSizeName = productBlockSetting(pb, 'cta_font_size', 'Medium');
@@ -384,14 +386,19 @@ Widget _buildProductGridTile({
     required Widget child,
     Widget? bottom,
   }) {
-    final column = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        child,
-        if (bottom != null) const Spacer(),
-        if (bottom != null) bottom,
-      ],
-    );
+    // The inline grid measures cards with a real layout pass, so the column
+    // must accept an unbounded height. Carousel and catalog cells keep a
+    // Spacer because their parent already supplies a fixed height.
+    final Widget column = hugContent
+        ? _BottomPin(top: child, bottom: bottom)
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              child,
+              if (bottom != null) const Spacer(),
+              if (bottom != null) bottom,
+            ],
+          );
     if (!cardView) return column;
     return Container(
       decoration: BoxDecoration(
@@ -421,11 +428,9 @@ Widget _buildProductGridTile({
   final atcRadius = env.r.dp(addToCartRadiusDp);
   final atcButtonHeight = env.r.dp(_gridAtcButtonDp);
   final soldOutCta = productSoldOutCta(pb, item);
-  final atcFill = soldOutCta == null
-      ? addToCartCtaColor
-      : soldOutCta.background;
-  final atcTextColor =
-      soldOutCta?.foreground ?? addToCartTextColor;
+  final atcFill =
+      soldOutCta == null ? addToCartCtaColor : soldOutCta.background;
+  final atcTextColor = soldOutCta?.foreground ?? addToCartTextColor;
   final addPayload = {
     'type': 'add_to_cart',
     if (pidStr.isNotEmpty) 'productId': pidStr,
@@ -436,9 +441,7 @@ Widget _buildProductGridTile({
   final atcDecoration = BoxDecoration(
     color: addToCartIsOutlined ? Colors.transparent : atcFill,
     borderRadius: BorderRadius.circular(atcRadius),
-    border: addToCartIsOutlined
-        ? Border.all(color: atcFill, width: 1.5)
-        : null,
+    border: addToCartIsOutlined ? Border.all(color: atcFill, width: 1.5) : null,
     boxShadow: addToCartIsOutlined || soldOutCta != null
         ? null
         : [
@@ -453,45 +456,45 @@ Widget _buildProductGridTile({
   final atcButton = Builder(
     builder: (buttonContext) {
       return SizedBox(
-    height: atcButtonHeight,
-    child: Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(atcRadius),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          if (soldOutCta != null) {
-            showProductSoldOutSnackBar(buttonContext);
-            return;
-          }
-          env.dispatchAction(buttonContext, addPayload);
-        },
-        child: Ink(
-          decoration: atcDecoration,
-          child: Center(
-            child: Text(
-              soldOutCta?.label ??
-                  productListCtaLabel(
-                    item,
-                    ctaText,
-                    variantLabel: variantCtaText,
+        height: atcButtonHeight,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(atcRadius),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              if (soldOutCta != null) {
+                showProductSoldOutSnackBar(buttonContext);
+                return;
+              }
+              env.dispatchAction(buttonContext, addPayload);
+            },
+            child: Ink(
+              decoration: atcDecoration,
+              child: Center(
+                child: Text(
+                  soldOutCta?.label ??
+                      productListCtaLabel(
+                        item,
+                        ctaText,
+                        variantLabel: variantCtaText,
+                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppDropThemeData.textStyle(
+                    fontFamily: AppDropThemeScope.maybeOf(context)
+                            ?.appStyling
+                            .fontFamily ??
+                        'Poppins',
+                    color: atcTextColor,
+                    fontSize: productCtaFontSize(ctaSizeName, env.r),
+                    fontWeight: productCtaFontWeight(ctaFontVariation),
                   ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppDropThemeData.textStyle(
-                fontFamily: AppDropThemeScope.maybeOf(context)
-                        ?.appStyling
-                        .fontFamily ??
-                    'Poppins',
-                color: atcTextColor,
-                fontSize: productCtaFontSize(ctaSizeName, env.r),
-                fontWeight: productCtaFontWeight(ctaFontVariation),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    ),
       );
     },
   );
@@ -528,7 +531,8 @@ Widget _gridTileBox({
   required bool hugContent,
   required Widget child,
 }) {
-  final Widget tile = horizontalRow ? SizedBox(width: tileW, child: child) : child;
+  final Widget tile =
+      horizontalRow ? SizedBox(width: tileW, child: child) : child;
   if (hugContent) return tile;
   return SizedBox(
     width: horizontalRow ? tileW : double.infinity,
@@ -775,6 +779,12 @@ Widget buildProductGrid(
 
 /// Rows of product cards. Every card in a row matches the tallest card, and
 /// the add-to-cart buttons sit on the same line.
+///
+/// Height comes from a real layout pass, not [IntrinsicHeight]. Text and the
+/// price [FittedBox] can lay out a couple of pixels taller than the height
+/// they report — most often on the first frame, before the store font is
+/// cached. [IntrinsicHeight] then forces that short height and the card
+/// column overflows.
 Widget _contentSizedProductGrid({
   required int columns,
   required double crossAxisSpacing,
@@ -790,24 +800,185 @@ Widget _contentSizedProductGrid({
     children: [
       for (var row = 0; row < rows; row++) ...[
         if (row > 0) SizedBox(height: mainAxisSpacing),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var col = 0; col < safeColumns; col++) ...[
-                if (col > 0) SizedBox(width: crossAxisSpacing),
-                Expanded(
-                  child: row * safeColumns + col < itemCount
-                      ? itemBuilder(row * safeColumns + col)
-                      : const SizedBox(),
-                ),
-              ],
-            ],
-          ),
+        _EqualHeightRow(
+          spacing: crossAxisSpacing,
+          children: [
+            for (var col = 0; col < safeColumns; col++)
+              row * safeColumns + col < itemCount
+                  ? itemBuilder(row * safeColumns + col)
+                  : const SizedBox(),
+          ],
         ),
       ],
     ],
   );
+}
+
+/// Pins [bottom] to the bottom when a row stretches this card, and sizes to
+/// the content when the parent height is unbounded.
+class _BottomPin extends MultiChildRenderObjectWidget {
+  _BottomPin({required Widget top, Widget? bottom})
+      : super(children: bottom == null ? <Widget>[top] : <Widget>[top, bottom]);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderBottomPin();
+}
+
+class _BottomPinParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderBottomPin extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _BottomPinParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _BottomPinParentData> {
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _BottomPinParentData) {
+      child.parentData = _BottomPinParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final top = firstChild;
+    if (top == null) {
+      size = constraints.smallest;
+      return;
+    }
+
+    final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+    final childConstraints = BoxConstraints(minWidth: width, maxWidth: width);
+    final bottom = childAfter(top);
+    bottom?.layout(childConstraints, parentUsesSize: true);
+    top.layout(childConstraints, parentUsesSize: true);
+
+    final bottomHeight = bottom?.size.height ?? 0.0;
+    final natural = top.size.height + bottomHeight;
+    final height =
+        constraints.hasBoundedHeight ? constraints.maxHeight : natural;
+    size = constraints.constrain(Size(width, height));
+
+    (top.parentData! as _BottomPinParentData).offset = Offset.zero;
+    if (bottom != null) {
+      (bottom.parentData! as _BottomPinParentData).offset =
+          Offset(0, size.height - bottomHeight);
+    }
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
+  }
+}
+
+/// Lays cards out at their real height, then stretches the row to the tallest.
+class _EqualHeightRow extends MultiChildRenderObjectWidget {
+  const _EqualHeightRow({
+    required this.spacing,
+    required super.children,
+  });
+
+  final double spacing;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderEqualHeightRow(spacing: spacing);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderEqualHeightRow renderObject,
+  ) {
+    renderObject.spacing = spacing;
+  }
+}
+
+class _EqualHeightRowParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderEqualHeightRow extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _EqualHeightRowParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _EqualHeightRowParentData> {
+  _RenderEqualHeightRow({required double spacing}) : _spacing = spacing;
+
+  double _spacing;
+
+  double get spacing => _spacing;
+
+  set spacing(double value) {
+    if (_spacing == value) return;
+    _spacing = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _EqualHeightRowParentData) {
+      child.parentData = _EqualHeightRowParentData();
+    }
+  }
+
+  int get _childCount {
+    var count = 0;
+    var child = firstChild;
+    while (child != null) {
+      count++;
+      child = childAfter(child);
+    }
+    return count;
+  }
+
+  @override
+  void performLayout() {
+    final count = _childCount;
+    final maxWidth = constraints.maxWidth;
+    if (count == 0 || !maxWidth.isFinite) {
+      size = Size(maxWidth.isFinite ? maxWidth : 0, 0);
+      return;
+    }
+
+    final gaps = spacing * (count - 1);
+    final rawWidth = (maxWidth - gaps) / count;
+    final childWidth = rawWidth < 0 ? 0.0 : rawWidth;
+    final loose = BoxConstraints(minWidth: childWidth, maxWidth: childWidth);
+
+    var maxHeight = 0.0;
+    var child = firstChild;
+    while (child != null) {
+      child.layout(loose, parentUsesSize: true);
+      if (child.size.height > maxHeight) maxHeight = child.size.height;
+      child = childAfter(child);
+    }
+
+    var x = 0.0;
+    child = firstChild;
+    while (child != null) {
+      child.layout(
+        BoxConstraints.tightFor(width: childWidth, height: maxHeight),
+        parentUsesSize: true,
+      );
+      (child.parentData! as _EqualHeightRowParentData).offset = Offset(x, 0);
+      x += childWidth + spacing;
+      child = childAfter(child);
+    }
+
+    size = Size(maxWidth, maxHeight);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
+  }
 }
 
 double _estimateMetaHeight(

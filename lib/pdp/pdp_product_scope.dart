@@ -131,7 +131,6 @@ class PdpProductController extends ChangeNotifier {
   double get sellingPrice {
     final selected = selectedVariant;
     if (selected != null && selected.hasPrice) return selected.sellingPrice;
-    if (variants.isNotEmpty) return selected?.sellingPrice ?? 0;
     return _baseSellingPrice();
   }
 
@@ -142,7 +141,6 @@ class PdpProductController extends ChangeNotifier {
       if (retail != null && retail > 0) return retail;
       if (selected.hasPrice) return selected.sellingPrice;
     }
-    if (variants.isNotEmpty) return selected?.retailPrice ?? selected?.sellingPrice ?? 0;
     return _baseRetailPrice();
   }
 
