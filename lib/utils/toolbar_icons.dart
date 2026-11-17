@@ -121,7 +121,11 @@ abstract class ToolbarGlyph {
 bool isSvgNetworkUrl(String raw) {
   final t = raw.trim();
   if (t.isEmpty) return false;
+  if (t.toLowerCase().contains('image/svg')) return true;
   final uri = Uri.tryParse(t);
-  final path = (uri?.path ?? t).toLowerCase();
-  return path.endsWith('.svg') || t.toLowerCase().contains('image/svg');
+  var path = (uri?.path ?? t).toLowerCase();
+  if (path.endsWith('/')) {
+    path = path.substring(0, path.length - 1);
+  }
+  return path.endsWith('.svg');
 }

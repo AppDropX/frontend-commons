@@ -38,22 +38,26 @@ class AppDropTintedGraphic extends StatelessWidget {
           height: size,
           child: _glyphIcon(),
         ),
-        errorBuilder: (_, __, ___) => _glyphIcon(),
+        errorBuilder: (_, __, ___) => _rasterGraphic(url),
       );
     }
     if (url != null) {
-      return AppDropNetworkImage(
-        url: url,
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        color: color,
-        colorBlendMode: BlendMode.srcIn,
-        gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => _glyphIcon(),
-      );
+      return _rasterGraphic(url);
     }
     return _glyphIcon();
+  }
+
+  Widget _rasterGraphic(String url) {
+    return AppDropNetworkImage(
+      url: url,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      color: color,
+      colorBlendMode: BlendMode.srcIn,
+      gaplessPlayback: true,
+      errorBuilder: (_, __, ___) => _glyphIcon(),
+    );
   }
 
   Widget _glyphIcon() {

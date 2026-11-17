@@ -11,8 +11,7 @@ Widget buildRichTextWidget(
   final enabled = (raw['enabled'] ?? true) == true;
   if (!enabled) return const SizedBox.shrink();
 
-  final deltaAny = raw['delta'];
-  final delta = _normalizeDelta(deltaAny);
+  final delta = _deltaFromProps(raw);
 
   final baseSizeSp = (raw['baseSizeSp'] is num)
       ? (raw['baseSizeSp'] as num).toDouble()
@@ -121,6 +120,49 @@ List<Map<String, dynamic>> _deltaWithBlockAlignment(
 }
 
 /// ---------- helpers ----------
+List<Map<String, dynamic>> _deltaFromProps(Map raw) {
+  final fromDelta = _normalizeDelta(raw['delta']);
+  if (!_deltaIsBlank(fromDelta)) return fromDelta;
+
+  final fromSpans = _deltaFromSpans(raw['spans']);
+  if (fromSpans != null) return fromSpans;
+
+  for (final key in ['text', 'content', 'body']) {
+    final t = raw[key]?.toString().trim() ?? '';
+    if (t.isNotEmpty) return _normalizeDelta([{'insert': '$t\n'}]);
+  }
+  return fromDelta;
+}
+
+bool _deltaIsBlank(List<Map<String, dynamic>> delta) {
+  if (delta.isEmpty) return true;
+  final buf = StringBuffer();
+  for (final op in delta) {
+    final insert = op['insert'];
+    if (insert is String) buf.write(insert);
+  }
+  final plain = buf.toString().replaceAll('\n', ' ').trim().toLowerCase();
+  return plain.isEmpty || plain == 'demo rich text' || plain == 'demo';
+}
+
+List<Map<String, dynamic>>? _deltaFromSpans(dynamic raw) {
+  if (raw is! List || raw.isEmpty) return null;
+  final ops = <Map<String, dynamic>>[];
+  for (final e in raw) {
+    if (e is! Map) continue;
+    final text = (e['text'] ?? '').toString();
+    if (text.trim().isEmpty) continue;
+    final weight = (e['weight'] ?? '').toString().toLowerCase();
+    final op = <String, dynamic>{'insert': text};
+    if (weight == 'bold' || weight == 'w700' || weight == 'w800') {
+      op['attributes'] = {'bold': true};
+    }
+    ops.add(op);
+  }
+  if (ops.isEmpty) return null;
+  return _normalizeDelta(ops);
+}
+
 List<Map<String, dynamic>> _normalizeDelta(dynamic deltaAny) {
   // if delta is missing, return minimal doc
   if (deltaAny is! List) {
