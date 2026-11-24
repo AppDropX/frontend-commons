@@ -5,6 +5,8 @@ import 'registry.dart';
 import '../plp/plp_layout_scope.dart';
 import '../utils/component_shadow.dart';
 import '../utils/media_block_padding.dart';
+import '../widgets/animated_block_column.dart';
+import '../widgets/preview_block_anchor.dart';
 
 /// Default vertical space between blocks when rendered in a column.
 const double kDefaultBlockSpacing = 12.0;
@@ -127,6 +129,21 @@ bool _isNonVisualShellBlock(WidgetNode node) {
   }
 }
 
+String _uniqueBlockChangeId(
+  WidgetNode node,
+  int index,
+  Set<String> used,
+) {
+  var id = node.id.trim();
+  if (id.isEmpty) id = '${node.type}#$index';
+  if (used.add(id)) return id;
+  var n = 1;
+  while (!used.add('$id~$n')) {
+    n++;
+  }
+  return '$id~$n';
+}
+
 /// Default [kDefaultBlockSpacing] is skipped next to non-zero spacer blocks — gap comes from [sizeDp].
 /// Zero-height spacers are omitted so neighboring blocks keep their normal spacing.
 bool _shouldAddBlockSpacing(WidgetNode previous, WidgetNode current) {
@@ -162,6 +179,20 @@ class AppDropRenderer extends StatelessWidget {
   /// When false, disables storefront-only tap behaviors in the theme builder preview.
   final bool interactiveFeaturesEnabled;
 
+  /// When true, later insert/remove of page blocks animates in the preview.
+  /// First paint of a page is still instant.
+  final bool animateBlockChanges;
+
+  /// When true, each block is anchored so [scrollToBlockId] can bring it on screen.
+  final bool syncScrollToBlock;
+
+  /// Builder left-panel selection. When this id appears, that block scrolls to
+  /// the top of the preview viewport.
+  final String? scrollToBlockId;
+
+  /// Bumped when preview should re-scroll to [scrollToBlockId] (reorder / re-click).
+  final int scrollGeneration;
+
   const AppDropRenderer({
     super.key,
     required this.nodes,
@@ -176,6 +207,10 @@ class AppDropRenderer extends StatelessWidget {
     this.parentTopInset = 0,
     this.showProductGridHomeTitle = false,
     this.interactiveFeaturesEnabled = true,
+    this.animateBlockChanges = false,
+    this.syncScrollToBlock = false,
+    this.scrollToBlockId,
+    this.scrollGeneration = 0,
   });
 
   @override
@@ -206,6 +241,13 @@ class AppDropRenderer extends StatelessWidget {
         }
 
         final children = <Widget>[];
+        final animatedItems = <AnimatedBlockItem>[];
+        final usedIds = <String>{};
+        final layoutSignature = [
+          for (final node in nodes)
+            if (!_isZeroHeightSpacer(node) && !_isNonVisualShellBlock(node))
+              node.id,
+        ].join('|');
         var lastRenderedIndex = -1;
         for (var i = 0; i < nodes.length; i++) {
           if (_isZeroHeightSpacer(nodes[i])) continue;
@@ -213,13 +255,14 @@ class AppDropRenderer extends StatelessWidget {
 
           final node = nodes[i];
           final isToggleBlock = _isPaddingToggleBlock(node);
-          if (lastRenderedIndex >= 0 &&
+          final addSpacing = lastRenderedIndex >= 0 &&
               blockSpacing > 0 &&
               _shouldAddBlockSpacing(
                 nodes[lastRenderedIndex],
                 node,
               ) &&
-              !(isToggleBlock && !_verticalPaddingEnabled(node))) {
+              !(isToggleBlock && !_verticalPaddingEnabled(node));
+          if (!animateBlockChanges && addSpacing) {
             children.add(SizedBox(height: blockSpacing));
           }
           var block = renderNode(context, node);
@@ -248,8 +291,41 @@ class AppDropRenderer extends StatelessWidget {
               child: block,
             );
           }
-          children.add(block);
+          final blockId = (animateBlockChanges || syncScrollToBlock)
+              ? _uniqueBlockChangeId(node, i, usedIds)
+              : '';
+          if (syncScrollToBlock && blockId.isNotEmpty) {
+            block = PreviewBlockAnchor(
+              key: ValueKey<String>(blockId),
+              blockId: blockId,
+              scrollToBlockId: scrollToBlockId,
+              scrollGeneration: scrollGeneration,
+              layoutSignature: layoutSignature,
+              child: block,
+            );
+          }
+          if (animateBlockChanges) {
+            block = Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (addSpacing) SizedBox(height: blockSpacing),
+                block,
+              ],
+            );
+            animatedItems.add(
+              AnimatedBlockItem(
+                id: blockId,
+                child: block,
+              ),
+            );
+          } else {
+            children.add(block);
+          }
           lastRenderedIndex = i;
+        }
+        if (animateBlockChanges) {
+          return AnimatedBlockColumn(items: animatedItems);
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -1,6 +1,8 @@
 library theme_library;
 
 export 'src/renderer.dart';
+export 'widgets/animated_block_column.dart';
+export 'widgets/preview_block_anchor.dart';
 export 'src/registry.dart';
 export 'src/widget_node.dart';
 export 'src/responsive.dart';

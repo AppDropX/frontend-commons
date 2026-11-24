@@ -1,125 +1,206 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_quill/flutter_quill.dart' as quill;
 
 import '../theme_library.dart'; // WidgetNode, AppDropBuildEnv
 
-/// ✅ Preview renderer for "rich_text" block using FlutterQuill (read-only)
+/// Storefront / preview renderer for `rich_text`.
+/// Uses [Text.rich] (not FlutterQuill) so nested builder previews cannot
+/// hit-test or layout-crash a Quill editor.
 Widget buildRichTextWidget(
-    BuildContext context, WidgetNode node, AppDropBuildEnv env) {
+  BuildContext context,
+  WidgetNode node,
+  AppDropBuildEnv env,
+) {
   final raw = node.props;
 
   final enabled = (raw['enabled'] ?? true) == true;
   if (!enabled) return const SizedBox.shrink();
 
   final delta = _deltaFromProps(raw);
+  if (_deltaIsBlank(delta)) return const SizedBox.shrink();
 
   final baseSizeSp = (raw['baseSizeSp'] is num)
       ? (raw['baseSizeSp'] as num).toDouble()
       : 14.0;
   final alignStr = (raw['align'] ?? 'left').toString();
+  final baseColor = _colorFromHex(
+    (raw['baseColor'] ?? '#374151').toString(),
+    const Color(0xFF374151),
+  );
 
-  final deltaWithAlign = _deltaWithBlockAlignment(delta, alignStr);
+  final lines = _linesFromDelta(delta, alignStr);
+  final pad = env.r.dp(12);
+  final markerW = env.r.dp(22);
+  final indentStep = env.r.dp(16);
+  final baseStyle = TextStyle(
+    fontSize: baseSizeSp,
+    color: baseColor,
+    height: 1.4,
+  );
 
-  return MediaQuery(
-    data: MediaQuery.of(context).copyWith(
-      textScaler: TextScaler.linear((baseSizeSp / 14.0).clamp(0.5, 3.0)),
-    ),
-    child: _QuillReadOnlyView(
-      delta: deltaWithAlign,
+  var orderedIndex = 0;
+  final children = <Widget>[];
+  for (final line in lines) {
+    if (line.list == 'ordered') {
+      orderedIndex += 1;
+    } else {
+      orderedIndex = 0;
+    }
+    Widget text = Text.rich(
+      TextSpan(style: baseStyle, children: line.spans),
+      textAlign: line.align,
+    );
+    if (line.list != null) {
+      final marker = line.list == 'ordered' ? '$orderedIndex.' : '•';
+      final markerStyle = _markerStyle(baseStyle, line.spans);
+      text = Padding(
+        padding: EdgeInsets.only(left: indentStep * line.indent),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: line.list == 'ordered' ? markerW + env.r.dp(10) : markerW,
+              child: Text(marker, style: markerStyle),
+            ),
+            Expanded(child: text),
+          ],
+        ),
+      );
+    }
+    children.add(text);
+  }
+
+  return Padding(
+    padding: EdgeInsets.symmetric(horizontal: pad, vertical: env.r.dp(4)),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
     ),
   );
 }
 
-/// ---------- Read-only widget (stateful so we don't leak FocusNode/ScrollController) ----------
-class _QuillReadOnlyView extends StatefulWidget {
-  final List<Map<String, dynamic>> delta;
-  const _QuillReadOnlyView({required this.delta});
-
-  @override
-  State<_QuillReadOnlyView> createState() => _QuillReadOnlyViewState();
+class _Line {
+  const _Line({
+    required this.spans,
+    required this.align,
+    this.list,
+    this.indent = 0,
+  });
+  final List<InlineSpan> spans;
+  final TextAlign align;
+  final String? list;
+  final int indent;
 }
 
-class _QuillReadOnlyViewState extends State<_QuillReadOnlyView> {
-  late quill.QuillController _controller;
-  final FocusNode _focusNode = FocusNode();
-  final ScrollController _scrollController = ScrollController();
+List<_Line> _linesFromDelta(
+  List<Map<String, dynamic>> delta,
+  String fallbackAlign,
+) {
+  final lines = <_Line>[];
+  var spans = <InlineSpan>[];
+  var lineAlign = _textAlign(fallbackAlign);
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = _makeController(widget.delta);
-  }
-
-  @override
-  void didUpdateWidget(covariant _QuillReadOnlyView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // delta changed => rebuild document
-    if (!_sameDelta(oldWidget.delta, widget.delta)) {
-      _controller = _makeController(widget.delta);
-      setState(() {});
+  void flush(Map<String, dynamic> newlineAttrs) {
+    if (spans.isEmpty) {
+      spans = [const TextSpan(text: '')];
     }
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  quill.QuillController _makeController(List<Map<String, dynamic>> delta) {
-    final doc = quill.Document.fromJson(delta);
-    final c = quill.QuillController(
-      document: doc,
-      selection: const TextSelection.collapsed(offset: 0),
+    final listRaw = newlineAttrs['list']?.toString().toLowerCase();
+    String? list;
+    if (listRaw == 'bullet' || listRaw == 'unordered') {
+      list = 'bullet';
+    } else if (listRaw == 'ordered' || listRaw == 'number' || listRaw == 'numbered') {
+      list = 'ordered';
+    }
+    final indent = newlineAttrs['indent'] is num
+        ? (newlineAttrs['indent'] as num).toInt().clamp(0, 8)
+        : 0;
+    if (newlineAttrs['align'] is String) {
+      lineAlign = _textAlign(newlineAttrs['align'].toString(), fallbackAlign);
+    }
+    lines.add(
+      _Line(spans: spans, align: lineAlign, list: list, indent: indent),
     );
-    c.readOnly = true; // ✅ this is correct in flutter_quill 11.x
-    return c;
+    spans = <InlineSpan>[];
+    lineAlign = _textAlign(fallbackAlign);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // ✅ IMPORTANT: Preview page already has SingleChildScrollView
-    // So we make QuillEditor non-interactive and let outer scroll handle it.
-    return IgnorePointer(
-      ignoring: true, // ✅ read-only + no focus issues
-      child: quill.QuillEditor(
-        controller: _controller,
-        focusNode: _focusNode,
-        scrollController: _scrollController,
-        config: const quill.QuillEditorConfig(
-          autoFocus: false,
-          expands: false,
-          padding: EdgeInsets.zero,
-          showCursor: false,
-        ),
-      ),
-    );
-  }
-}
-
-/// Injects block-level "align" attribute so Quill renders alignment.
-List<Map<String, dynamic>> _deltaWithBlockAlignment(
-    List<Map<String, dynamic>> delta, String align) {
-  if (align == 'left') return delta;
-  final out = <Map<String, dynamic>>[];
   for (final op in delta) {
-    final map = Map<String, dynamic>.from(op);
-    final insert = map['insert'];
-    final isLine = insert is String && insert.toString().contains('\n');
-    if (isLine) {
-      final attrs = map['attributes'] is Map
-          ? Map<String, dynamic>.from(map['attributes'] as Map)
-          : <String, dynamic>{};
-      attrs['align'] = align;
-      map['attributes'] = attrs;
+    final insert = op['insert'];
+    if (insert is! String || insert.isEmpty) continue;
+    final attrs = op['attributes'] is Map
+        ? Map<String, dynamic>.from(op['attributes'] as Map)
+        : const <String, dynamic>{};
+    final pieces = insert.split('\n');
+    for (var i = 0; i < pieces.length; i++) {
+      final piece = pieces[i];
+      if (piece.isNotEmpty) {
+        spans.add(TextSpan(text: piece, style: _spanStyle(attrs)));
+      }
+      if (i != pieces.length - 1) {
+        flush(attrs);
+      }
     }
-    out.add(map);
   }
-  return out;
+  if (spans.isNotEmpty) flush(const {});
+  if (lines.isEmpty) {
+    lines.add(
+      _Line(spans: const [TextSpan(text: '')], align: _textAlign(fallbackAlign)),
+    );
+  }
+  return lines;
 }
 
-/// ---------- helpers ----------
+TextStyle _markerStyle(TextStyle base, List<InlineSpan> spans) {
+  for (final span in spans) {
+    if (span is TextSpan && span.style != null) {
+      return base.merge(span.style);
+    }
+  }
+  return base;
+}
+
+TextStyle _spanStyle(Map<String, dynamic> attrs) {
+  final color = attrs['color'] != null
+      ? _colorFromHex(attrs['color'].toString(), const Color(0xFF374151))
+      : null;
+  return TextStyle(
+    fontWeight: attrs['bold'] == true ? FontWeight.w700 : null,
+    fontStyle: attrs['italic'] == true ? FontStyle.italic : null,
+    decoration: _decoration(attrs),
+    color: color,
+  );
+}
+
+TextDecoration? _decoration(Map<String, dynamic> attrs) {
+  final underline = attrs['underline'] == true;
+  final strike = attrs['strike'] == true || attrs['strikeThrough'] == true;
+  if (underline && strike) {
+    return TextDecoration.combine([
+      TextDecoration.underline,
+      TextDecoration.lineThrough,
+    ]);
+  }
+  if (underline) return TextDecoration.underline;
+  if (strike) return TextDecoration.lineThrough;
+  return null;
+}
+
+TextAlign _textAlign(String value, [String fallback = 'left']) {
+  switch (value.toLowerCase()) {
+    case 'center':
+    case 'centre':
+      return TextAlign.center;
+    case 'right':
+      return TextAlign.right;
+    case 'justify':
+      return TextAlign.justify;
+    case 'left':
+      return TextAlign.left;
+    default:
+      if (fallback != value) return _textAlign(fallback);
+      return TextAlign.left;
+  }
+}
+
 List<Map<String, dynamic>> _deltaFromProps(Map raw) {
   final fromDelta = _normalizeDelta(raw['delta']);
   if (!_deltaIsBlank(fromDelta)) return fromDelta;
@@ -154,9 +235,15 @@ List<Map<String, dynamic>>? _deltaFromSpans(dynamic raw) {
     if (text.trim().isEmpty) continue;
     final weight = (e['weight'] ?? '').toString().toLowerCase();
     final op = <String, dynamic>{'insert': text};
+    final attrs = <String, dynamic>{};
     if (weight == 'bold' || weight == 'w700' || weight == 'w800') {
-      op['attributes'] = {'bold': true};
+      attrs['bold'] = true;
     }
+    final color = (e['color'] ?? '').toString().trim();
+    if (color.isNotEmpty) {
+      attrs['color'] = color.startsWith('#') ? color : '#$color';
+    }
+    if (attrs.isNotEmpty) op['attributes'] = attrs;
     ops.add(op);
   }
   if (ops.isEmpty) return null;
@@ -164,10 +251,9 @@ List<Map<String, dynamic>>? _deltaFromSpans(dynamic raw) {
 }
 
 List<Map<String, dynamic>> _normalizeDelta(dynamic deltaAny) {
-  // if delta is missing, return minimal doc
   if (deltaAny is! List) {
     return const [
-      {"insert": "\n"}
+      {'insert': '\n'},
     ];
   }
 
@@ -178,23 +264,23 @@ List<Map<String, dynamic>> _normalizeDelta(dynamic deltaAny) {
 
   if (list.isEmpty) {
     return const [
-      {"insert": "\n"}
+      {'insert': '\n'},
     ];
   }
 
-  // ✅ Quill requires final newline
   final last = list.last['insert'];
   if (last is String && !last.endsWith('\n')) {
-    list.add({"insert": "\n"});
+    list.add({'insert': '\n'});
   }
   return list;
 }
 
-bool _sameDelta(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
-  if (identical(a, b)) return true;
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i].toString() != b[i].toString()) return false;
-  }
-  return true;
+Color _colorFromHex(String hex, Color fallback) {
+  var h = hex.trim();
+  if (h.startsWith('#')) h = h.substring(1);
+  if (h.length == 6) h = 'FF$h';
+  if (h.length != 8) return fallback;
+  final n = int.tryParse(h, radix: 16);
+  if (n == null) return fallback;
+  return Color(n);
 }

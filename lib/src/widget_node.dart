@@ -3,17 +3,24 @@ import '../theme_library.dart';
 typedef JsonMap = Map<String, dynamic>;
 
 class WidgetNode {
+  /// Stable CMS / builder block id. Used to animate insert/remove in preview.
+  final String id;
   final String type;
   final JsonMap props;
   final List<WidgetNode> children;
 
-  WidgetNode({required this.type, JsonMap? props, List<WidgetNode>? children})
-      : props = props ?? <String, dynamic>{},
+  WidgetNode({
+    this.id = '',
+    required this.type,
+    JsonMap? props,
+    List<WidgetNode>? children,
+  })  : props = props ?? <String, dynamic>{},
         children = children ?? <WidgetNode>[];
 
   factory WidgetNode.fromJson(dynamic json) {
     final map = JsonMap.from(json as Map);
     final type = (map['type'] ?? '').toString();
+    final id = (map['id'] ?? '').toString();
     final JsonMap props;
     if (map.containsKey('props')) {
       props = JsonMap.from(map['props'] as Map);
@@ -27,6 +34,7 @@ class WidgetNode {
     final kids =
         (map['children'] is List) ? (map['children'] as List) : const [];
     return WidgetNode(
+      id: id,
       type: type,
       props: props,
       children: kids.map((e) => WidgetNode.fromJson(e)).toList(),
